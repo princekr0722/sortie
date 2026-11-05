@@ -6,15 +6,16 @@ import re
 from collections.abc import AsyncIterator
 from urllib.parse import quote
 
+from playwright.async_api import Error as PlaywrightError
 from playwright.async_api import TimeoutError as PlaywrightTimeout
 
 from sortie.browser import human_pause
 from sortie.config import Profile, SearchConfig
 from sortie.filters import COUNTRIES, location_aliases
-from sortie.llm.answerer import Answerer
+from sortie.llm.answerer import Answerer, question_kind
 from sortie.log import log
 from sortie.models import Answer, ApplyResult, Job, Question, QuestionKind, Status
-from sortie.sites.base import ConfirmSubmit, SiteAdapter
+from sortie.sites.base import BlockedError, ConfirmSubmit, SiteAdapter
 
 BASE = "https://www.naukri.com"
 PAGE_SIZE = 20
@@ -37,17 +38,24 @@ SELECTORS = {
     "already_applied": "#already-applied, [class*='already-applied']",
     # after a successful apply Naukri navigates to "Apply Confirmation" (verified 2026-11-05)
     "apply_confirmation": ".applied-job-content",
-    # apply chatbot (verified 2026-11-05 except checkbox). Use exact classes: substring matches like
+    # apply chatbot (verified 2026-11-05). Use exact classes: substring matches like
     # [class*='chatbot_Chip'] also hit the .chatbot_Chips container and read every option as one.
     "chat_drawer": ".chatbot_DrawerContentWrapper",
     "chat_bot_msg": ".chatbot_ListItem .botMsg",
     "chat_radio": ".ssrc__radio-btn-container",
-    "chat_checkbox": ".mcc__checkbox-container",  # not seen live yet
+    "chat_checkbox": ".multicheckboxes-container .mcc__label",
     "chat_chip": ".chatbot_Chip",
     "chat_text": "div.textArea[contenteditable='true']",
-    "chat_send": ".sendMsg",
+    # the clickable Save is the outer container; the inner .sendMsg text is covered by it
+    "chat_send": ".sendMsgbtn_container",
+    "chat_send_enabled": ".sendMsgbtn_container .send:not(.disabled)",
     "chat_close": ".chatbot_Nav .crossIcon",
 }
+# short-lived notices Naukri shows after clicking Apply (daily limit, per-company limit, errors)
+NOTICE_SELECTOR = "[role='alert'], [class*='toast' i], [class*='snackbar' i], [class*='Toaster']"
+# Apply clicks in a row that did nothing before Naukri is stopped for the run (likely a daily/company limit)
+MAX_NO_EFFECT = 2
+NO_EFFECT = "Apply did nothing (no questions, no confirmation)"
 SUCCESS_TEXT = re.compile(r"successfully applied|application (has been )?(submitted|sent)|you have applied", re.I)
 OPTION_NOISE = {"load more", "show more", "skip", "skip this question"}
 # Save every chatbot question's HTML to data/debug/ until the chatbot selectors are confirmed live
@@ -90,20 +98,13 @@ def split_options(texts: list[str]) -> list[str]:
     return options
 
 
-def question_kind(text: str, options: list[str], multi: bool) -> QuestionKind:
-    if options:
-        return QuestionKind.MULTI_CHOICE if multi else QuestionKind.CHOICE
-    t = text.lower()
-    if re.search(r"ctc|lakh|lpa|salary", t):
-        return QuestionKind.DECIMAL
-    if re.search(r"how many|years|days|number of", t):
-        return QuestionKind.NUMBER
-    return QuestionKind.TEXT
-
-
 class NaukriAdapter(SiteAdapter):
     name = "naukri"
     login_url = f"{BASE}/nlogin/login"
+
+    def __init__(self, page):
+        super().__init__(page)
+        self.no_effect_streak = 0
 
     async def ensure_logged_in(self) -> bool:
         await self.page.goto(f"{BASE}/mnjuser/homepage", wait_until="domcontentloaded")
@@ -179,11 +180,33 @@ class NaukriAdapter(SiteAdapter):
         if not await confirm(job, {}):
             return ApplyResult(Status.SKIPPED, "not submitted")
         await button.first.click()
-        return await self._finish_application(job, answerer)
+        notice = await self._read_notice()
+        result = await self._finish_application(job, answerer)
+        if result.status == Status.APPLIED:
+            self.no_effect_streak = 0
+        elif result.reason == NO_EFFECT:
+            self.no_effect_streak += 1
+            if notice:
+                result.reason = f"{NO_EFFECT}: Naukri said \"{notice}\""
+            if self.no_effect_streak >= MAX_NO_EFFECT:
+                raise BlockedError(f"naukri: Apply did nothing on {self.no_effect_streak} jobs in a row"
+                                   + (f" (\"{notice}\")" if notice else "")
+                                   + "; likely Naukri's daily or per-company apply limit", result)
+        return result
+
+    async def _read_notice(self) -> str:
+        """Text of a notice that flashes up right after clicking Apply, if any (gone within seconds)."""
+        for _ in range(12):
+            await self.page.wait_for_timeout(500)
+            for text in await self.page.locator(NOTICE_SELECTOR).all_inner_texts():
+                if text.strip():
+                    return " ".join(text.split())[:200]
+        return ""
 
     async def _finish_application(self, job: Job, answerer: Answerer) -> ApplyResult:
         answers: dict[str, Answer] = {}
         seen_questions = 0
+        chat_seen = False
         for _ in range(20):
             await self.page.wait_for_timeout(2500)
             if await self._succeeded():
@@ -191,6 +214,7 @@ class NaukriAdapter(SiteAdapter):
             drawer = self.page.locator(SELECTORS["chat_drawer"])
             if not await drawer.count() or not await drawer.first.is_visible():
                 continue
+            chat_seen = True
             messages = await self.page.locator(SELECTORS["chat_bot_msg"]).all_inner_texts()
             if len(messages) <= seen_questions:
                 continue
@@ -203,10 +227,11 @@ class NaukriAdapter(SiteAdapter):
                 return ApplyResult(Status.SKIPPED, f"couldn't answer: {q.text}", answers, path)
             await self._send_answer(q, answer.value)
             answers[q.text] = answer
-        return ApplyResult(Status.FAILED, "apply did not complete", answers, await self.debug_dump("stuck"))
+        reason = "apply did not complete" if chat_seen else NO_EFFECT
+        return ApplyResult(Status.FAILED, reason, answers, await self.debug_dump("stuck"))
 
     async def _succeeded(self) -> bool:
-        if await self.page.title() == "Apply Confirmation":
+        if "/myapply/saveApply" in self.page.url or await self.page.title() == "Apply Confirmation":
             return True
         if await self.page.locator(f'{SELECTORS["apply_confirmation"]}, {SELECTORS["already_applied"]}').count():
             return True
@@ -247,9 +272,24 @@ class NaukriAdapter(SiteAdapter):
             box = self.page.locator(SELECTORS["chat_text"]).first
             await box.click()
             await self.page.keyboard.type(str(value), delay=60)
+        await self._click_save()
+
+    async def _click_save(self) -> None:
+        """Save stays disabled until the answer registers. Submitting may navigate away mid-click
+        (to the apply confirmation), so a failed click is only an error if the apply didn't go through."""
         send = self.page.locator(SELECTORS["chat_send"])
-        if await send.count():
-            await send.first.click()
+        if not await send.count():
+            return
+        try:
+            await self.page.locator(SELECTORS["chat_send_enabled"]).first.wait_for(timeout=5000)
+        except PlaywrightTimeout:
+            pass
+        try:
+            await send.first.click(timeout=8000)
+        except PlaywrightError:
+            if await self._succeeded():
+                return
+            await send.first.click(force=True, timeout=5000)
 
     async def _close_chat(self) -> None:
         close = self.page.locator(SELECTORS["chat_close"])

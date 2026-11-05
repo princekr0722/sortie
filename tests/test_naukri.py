@@ -4,7 +4,8 @@ import pytest
 from playwright.async_api import async_playwright
 
 from sortie.models import QuestionKind
-from sortie.sites.naukri import CARD_JS, SELECTORS, card_to_job, question_kind, search_url, split_options
+from sortie.llm.answerer import question_kind
+from sortie.sites.naukri import CARD_JS, SELECTORS, card_to_job, search_url, split_options
 
 FIXTURE = Path(__file__).parent / "fixtures" / "naukri_search.html"
 

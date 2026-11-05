@@ -17,7 +17,7 @@
 | Browser session, run modes & safety | [features/browser-and-safety.md](features/browser-and-safety.md) | 1 | Done |
 | Application tracking (SQLite) | [features/tracking-db.md](features/tracking-db.md) | 1 | Done |
 | Naukri adapter | [features/site-naukri.md](features/site-naukri.md) | 1 | In progress |
-| Instahyre adapter | [features/site-instahyre.md](features/site-instahyre.md) | 1 | Planned |
+| Instahyre adapter | [features/site-instahyre.md](features/site-instahyre.md) | 1 | Done (inbox in progress) |
 | CutShort adapter | [features/site-cutshort.md](features/site-cutshort.md) | 1 | Planned |
 
 ## Conventions

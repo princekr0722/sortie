@@ -87,3 +87,16 @@ async def test_dry_run_writes_nothing_and_respects_limit(make_runner, monkeypatc
     assert site.applied == []
     assert r.summary["fake"]["skipped"] == 2
     assert not r.db.is_seen("fake", "0")
+
+
+async def test_block_during_apply_records_job_and_stops_site(make_runner):
+    from sortie.sites.base import BlockedError
+
+    class LimitedSite(FakeSite):
+        async def apply(self, job, answerer, confirm):
+            raise BlockedError("limit reached", ApplyResult(Status.FAILED, "Apply did nothing"))
+
+    r = make_runner(Mode.AUTO)
+    with pytest.raises(BlockedError):
+        await r.run_site(LimitedSite(jobs(3)))
+    assert r.summary["fake"]["failed"] == 1 and r.db.is_seen("fake", "0") is False  # failed once: retried later

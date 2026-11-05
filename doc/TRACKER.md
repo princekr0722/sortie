@@ -16,8 +16,10 @@ _Last updated: 2026-11-05_
 | 1.6 | Rule-based pre-filters + tests | [search](features/search-and-filters.md) | ✅ | Keywords checked in title only |
 | 1.7 | LLM client (LiteLLM), matcher, answerer + tests | [llm](features/llm-matching-and-answers.md) | ✅ | Unknown skills & money/legal questions never go to the LLM |
 | 1.8 | Browser session, run modes, CLI | [browser](features/browser-and-safety.md) | ✅ | Chrome launch verified; tested with a fake site |
-| 1.9 | Naukri adapter | [naukri](features/site-naukri.md) | 🟨 | 4 live applies OK. Chatbot verified; failed jobs now retried once. Waiting on a checkbox-type question |
-| 1.10 | Instahyre adapter | [instahyre](features/site-instahyre.md) | ⬜ | Needs your live login |
+| 1.9 | Naukri adapter | [naukri](features/site-naukri.md) | 🟨 | Fixed the 2 causes of all 19 failures (Save click, checkbox questions). Confirm on next run; failed jobs retry once. Headless is blocked by Naukri |
+| 1.10 | Instahyre adapter | [instahyre](features/site-instahyre.md) | ✅ | Apply verified live |
+| 1.10a | Instahyre: recommended opportunities before search | [instahyre](features/site-instahyre.md) | ✅ | |
+| 1.10b | Instahyre inbox: last 10 conversations awaiting your reply → answer questionnaires at the end, log other messages | [instahyre](features/site-instahyre.md) | 🟨 | Built + dry-run on a real questionnaire; needs a live `--review` run |
 | 1.11 | CutShort adapter | [cutshort](features/site-cutshort.md) | ⬜ | Needs your live login |
 | 1.12 | First live run (review mode, cap 3/site) | — | ⬜ | |
 | 1.13 | Answer book: `config/answers.yaml`, reused for reworded questions via LLM | [llm](features/llm-matching-and-answers.md) | ✅ | |
@@ -50,5 +52,5 @@ _Last updated: 2026-11-05_
 - [ ] `sortie init`, then fill in `config/profile.yaml` and `config/search.yaml`.
 - [ ] Put your resume PDF in `resumes/` and set `resume_pdf`.
 - [ ] Optional: `LLM_MODEL` / `LLM_API_KEY` (/ `LLM_API_BASE`) in `config/.env`.
-- [ ] `sortie login naukri` once.
+- [ ] `sortie login naukri` and `sortie login instahyre` once.
 - [ ] Make sure your Naukri profile's current city is right (Naukri pre-fills it into the apply chatbot).

@@ -1,6 +1,6 @@
 # Feature: Naukri Adapter
 
-**Status:** In progress (search, details, apply, success page and chatbot verified live; checkbox questions not seen yet) · **Phase:** 1 · **Code:** `src/sortie/sites/naukri.py`
+**Status:** In progress (search, details, apply, success page and all chatbot question types verified live) · **Phase:** 1 · **Code:** `src/sortie/sites/naukri.py`
 
 ## Login
 - `sortie login naukri` opens `naukri.com/nlogin/login` in the bot's Chrome; log in once, press Enter.
@@ -29,13 +29,13 @@
    - chatbot question → read the last bot message + radio / checkbox / chip options → answerer → click option or type into the text box → send.
      Options are split on new lines (one element can hold the whole list) and "Load more" is dropped; the option is clicked by its exact text inside the chatbot.
    - unanswerable question → close chatbot, `skipped` with the question as reason, debug dump.
-4. No success after 20 steps → `failed` + debug dump.
+4. No success after 20 steps → `failed` + debug dump. If the chatbot never appeared, the reason is "Apply did nothing"; 2 of those in a row stop Naukri for the run (likely a daily/company limit), and any notice Naukri flashed is included.
 
 **Pre-filled text box:** Naukri fills the chatbot text box from your Naukri profile (e.g. your Naukri profile's city for "What is your current location?"). Left there, it is sent together with the clicked option ("Bengaluru / Bangalore, <profile city>"), and typed answers get appended to it. The bot now clears the box (select all + Backspace) before every answer. The chatbot also says "Your profile will be updated with the details that you provide", so answers can change your Naukri profile.
 
 Field type for chatbot text boxes: CTC / lakh / salary → decimal; "how many / years / days" → number; else text.
 
-**Chatbot markup (verified 2026-11-05):** drawer `.chatbot_DrawerContentWrapper`; question = last `.chatbot_ListItem .botMsg`; single choice = `.ssrc__radio-btn-container` (Yes / No / "Skip this question" — the skip option is dropped); chips `.chatbot_Chip`; text box `div.textArea[contenteditable]`; submit `.sendMsg` ("Save", disabled until answered); close `.chatbot_Nav .crossIcon`. Use exact classes: `[class*='chatbot_Chip']` also matches the `.chatbot_Chips` container and reads every option as one. Checkbox (multi-select) questions haven't appeared yet. `DUMP_CHATBOT = True` keeps saving each question to `data/debug/`; switch it off once checkbox questions are confirmed.
+**Chatbot markup (verified 2026-11-05):** drawer `.chatbot_DrawerContentWrapper`; question = last `.chatbot_ListItem .botMsg`; single choice = `.ssrc__radio-btn-container` (Yes / No / "Skip this question" — the skip option is dropped); chips `.chatbot_Chip`; text box `div.textArea[contenteditable]`; submit `.sendMsg` ("Save", disabled until answered); close `.chatbot_Nav .crossIcon`. Use exact classes: `[class*='chatbot_Chip']` also matches the `.chatbot_Chips` container and reads every option as one. Multi-select = `.multicheckboxes-container` with `input.mcc__checkbox` + `label.mcc__label`. Save = `.sendMsgbtn_container` (clickable), `.send.disabled` until answered. `DUMP_CHATBOT = True` still saves each question to `data/debug/`; switch it off once a few runs are clean.
 
 ### Lessons from live runs (2026-11-05)
 | Issue | Fix |
@@ -44,6 +44,10 @@ Field type for chatbot text boxes: CTC / lakh / salary → decimal; "how many / 
 | Option list read as one string (`[class*='chatbot_Chip']` also matched the `.chatbot_Chips` container) | Exact class selectors, split options on new lines, click by exact text |
 | Radio answer not clicked → Save stayed disabled, job failed | Click the option's own text inside the chatbot; failed jobs are retried once |
 | Location sent as the chosen city **plus** Naukri's pre-filled profile city | Clear the text box before every answer |
+| 17 of 19 failures: clicking Save timed out ("`.sendMsgbtn_container` intercepts pointer events"); some had already navigated to `/myapply/saveApply` (submitted) | Click the outer `.sendMsgbtn_container`, wait until `.send` loses `disabled`; a click error only counts if the apply didn't go through; `/myapply/saveApply` counts as success |
+| 2 failures: multi-select questions (checkboxes) read as text, then waited for a hidden text box | Checkbox options are `.multicheckboxes-container .mcc__label` |
+| Headless Chrome gets an Akamai "Access Denied" page on job pages | Run Naukri visible (default); `check_blocked` stops the site when it sees this |
+| After ~45–50 applications in a day, clicking Apply did nothing on 5 jobs in a row (no chatbot, no confirmation, no message left on the page); the first job at the same company had just gone through | Likely Naukri's daily cap (~50) or a per-company limit. A notice shown within ~6 s of clicking is now captured into the reason; after 2 no-effect clicks in a row Naukri is stopped for the run (`MAX_NO_EFFECT`) |
 
 ## Dry run on Naukri
 `--dry-run` stops before clicking Apply, so it shows which jobs would be applied to but **can't preview chatbot questions** (they only appear after clicking).

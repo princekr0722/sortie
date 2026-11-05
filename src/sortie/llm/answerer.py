@@ -35,7 +35,8 @@ SENSITIVE = re.compile(
 FILLER = set(
     "a an the how many much long years year yrs months of in on with using do does you your have has "
     "what is are please mention enter specify total overall relevant professional work working it "
-    "industry software development field role domain experience exp hands handson as an in".split()
+    "industry software development field role domain experience exp hands handson as an in yoe full time fulltime "
+    "exclude excluding including internship internships".split()
 )
 
 SYSTEM = """You fill in job application screening questions for the candidate described below.
@@ -62,6 +63,20 @@ Answer for the field type: number -> whole years; decimal -> years with one deci
 choice -> exactly one of the options.
 Reply with only a JSON object:
 {"answer": "<answer>", "confidence": <0-1>, "based_on": "<listed skill or resume line>", "from_previous_answer": <true|false>}."""
+
+
+def question_kind(text: str, options: list[str], multi: bool) -> QuestionKind:
+    """Field type for a question whose form field doesn't say (free-text boxes on Naukri / Instahyre)."""
+    if options:
+        return QuestionKind.MULTI_CHOICE if multi else QuestionKind.CHOICE
+    t = text.lower()
+    if re.search(r"\boffers?\b|details|share|describe|explain|reason", t):
+        return QuestionKind.TEXT  # e.g. "share details about any offer - CTC, location, ..."
+    if re.search(r"ctc|lakh|lpa|salary", t):
+        return QuestionKind.DECIMAL
+    if re.search(r"how many|number of|\byears?\b|\byoe\b|notice period in days|how many days", t):
+        return QuestionKind.NUMBER
+    return QuestionKind.TEXT
 
 
 class _AskUser:
@@ -197,7 +212,7 @@ def profile_answer(profile: Profile, q: Question, job: Job,
 
     if re.search(r"notice period|how soon can you join|joining time|when can you (join|start)", ql):
         if "serving" in ql:
-            return None
+            return ASK_USER  # the profile doesn't say; ask once, then it's in answers.yaml
         days = profile.notice_period_days
         if q.kind == QuestionKind.CHOICE:
             for o in q.options:
@@ -206,6 +221,9 @@ def profile_answer(profile: Profile, q: Question, job: Job,
             value = pick_option(str(days), q.options)
             return Answer(value, "profile") if value else ASK_USER
         return Answer(str(days) if q.kind == QuestionKind.NUMBER else f"{days} days", "profile")
+
+    if re.search(r"\boffers?\b", ql):
+        return ASK_USER  # offers in hand / their CTC: only you know
 
     if re.search(r"\b(ctc|salary|compensation|package)\b", ql):
         if re.search(r"expect", ql):
@@ -224,7 +242,7 @@ def profile_answer(profile: Profile, q: Question, job: Job,
     if re.search(r"authori[sz]ed to work|eligible to work|right to work|work permit|legally allowed", ql):
         return _yes_no(_authorized(profile, _job_country(profile, ql, job)), q)
 
-    if re.search(r"experience|how many years|how long have you", ql):
+    if re.search(r"experience|how many years|how long have you|\byoe\b", ql):
         skill = find_skill(profile, ql)
         if skill:
             return _duration_answer(profile.skill_experience(skill, today), q) or ASK_USER
@@ -339,6 +357,10 @@ class Answerer:
         )
         try:
             data = await self.llm.complete_json(system, user)
+        except ValueError as e:  # replied in plain text: offer it as a suggestion, never auto-accept it
+            plain = str(e).split("reply: ", 1)[-1].strip("'\" ")
+            value = self._fit(plain, q) if plain and len(plain) < 200 else None
+            return (Answer(value, "llm"), 0.0, False) if value else (None, 0.0, False)
         except Exception as e:  # a flaky LLM shouldn't kill the run; the user gets asked instead
             log.warning(f"        LLM error ({type(e).__name__}): {str(e)[:150]}")
             return None, 0.0, False

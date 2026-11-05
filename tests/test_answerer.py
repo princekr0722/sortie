@@ -180,3 +180,14 @@ def test_country_and_education_come_from_profile(profile):
     assert ans(sg, "Will you require visa sponsorship?", K.CHOICE, ["Yes", "No"], job=sg_job) == "Yes"
     assert ans(sg, "Will you require visa sponsorship?", K.CHOICE, ["Yes", "No"]) == "No"
     assert ans(profile, "Highest qualification?", K.CHOICE, ["B.Tech", "B.Sc", "MCA"]) == "B.Sc"
+
+
+def test_questionnaire_style_questions(profile):
+    from sortie.llm.answerer import ASK_USER, question_kind
+    assert ans(profile, "Your total full-time YOE (exclude internships).", K.NUMBER) == "3"
+    assert ans(profile, "Are you serving notice period?", K.CHOICE, ["Yes", "No", "Completed"]) is ASK_USER
+    offer = "Share details about any offer you might hold - CTC, location, company type, etc."
+    assert question_kind(offer, [], False) == K.TEXT
+    assert ans(profile, offer) is ASK_USER
+    assert question_kind("This job is based out of Jaipur, 5 days WFO. Comfortable?", [], False) == K.TEXT
+    assert question_kind("Mention your current CTC.", [], False) == K.DECIMAL

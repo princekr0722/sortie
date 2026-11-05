@@ -41,7 +41,9 @@ Resolution order for each question:
   - numeric answers are capped at your total experience (an LLM "5" becomes 3).
 - Yes/No experience questions with no known skill ("experience building REST APIs?") → LLM.
 - **Money:** lakhs by default (e.g. `9.5`), rupees when the question says INR / ₹ / per annum without "lakh" (e.g. `1120000`). Expected CTC: text field → "min-max LPA", number/choice → `single_value`.
-- **Notice:** choice → option with "30" or "1 month"; number → `30`; text → "30 days". "Are you serving notice?" isn't a rule (LLM / you).
+- **Notice:** choice → option with "30" or "1 month"; number → `30`; text → "30 days". "Are you serving notice?" → asks you (once; then `answers.yaml`).
+- **Offers in hand** ("share details about any offer …") → asks you; never the CTC rule.
+- An LLM reply that isn't JSON is offered to you as a suggestion, never auto-accepted.
 - **Country** for visa / authorization questions: any country in `work_authorization` named in the question or job location (cities count), else `home_country`.
 
 ## Guardrails
