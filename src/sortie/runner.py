@@ -1,0 +1,160 @@
+"""One run: for each site, search → filter → score → apply → record."""
+
+from __future__ import annotations
+
+import re
+import time
+from collections import Counter
+
+from sortie import terminal
+from sortie.browser import Browser, human_pause
+from sortie.config import Profile, SearchConfig
+from sortie.db import Database
+from sortie.filters import skip_reason
+from sortie.llm.answer_book import AnswerBook
+from sortie.llm.answerer import Answerer
+from sortie.llm.client import LLMClient
+from sortie.llm.matcher import score_fit
+from sortie.log import log
+from sortie.models import ApplyResult, Job, Mode, Status
+from sortie.sites import ADAPTERS
+from sortie.sites.base import BlockedError, SiteAdapter
+
+LABELS = {
+    Status.APPLIED: ("✅", "APPLIED"),
+    Status.SKIPPED: ("· ", "SKIPPED"),
+    Status.EXTERNAL: ("↗ ", "EXTERNAL"),
+    Status.FAILED: ("❌", "FAILED"),
+    Status.PENDING_REVIEW: ("⏸ ", "PENDING"),
+}
+SUMMARY_ORDER = [Status.APPLIED, Status.EXTERNAL, Status.SKIPPED, Status.FAILED, Status.PENDING_REVIEW]
+
+
+def display_title(job: Job) -> str:
+    """Drop a trailing '@ Company' that some postings put in the title."""
+    return re.sub(rf"\s*@\s*{re.escape(job.company)}\s*$", "", job.title, flags=re.I) or job.title
+
+
+class Runner:
+    def __init__(self, profile: Profile, search: SearchConfig, db: Database, llm: LLMClient,
+                 mode: Mode, headless: bool, limit: int | None = None, book: AnswerBook | None = None):
+        self.profile = profile
+        self.search = search
+        self.db = db
+        self.llm = llm
+        self.mode = mode
+        self.headless = headless
+        self.limit = limit
+        self.answerer = Answerer(profile, book or AnswerBook(), llm, terminal.ask_user)
+        self.summary: dict[str, Counter] = {}
+        self.reached_submit = False  # dry runs count a job once it gets as far as the submit step
+        self.job_number = 0
+
+    async def run(self, sites: list[str]) -> None:
+        started = time.monotonic()
+        log.info(f"Mode: {self.mode.value} · LLM: {self.llm.model or 'off (rules + your answers only)'}")
+        async with Browser(self.headless) as browser:
+            for name in sites:
+                adapter = ADAPTERS[name](await browser.new_page())
+                self.summary[name] = Counter()
+                try:
+                    await self.run_site(adapter)
+                except BlockedError as e:
+                    log.warning(f"⛔ {e} — stopping {name} for this run")
+                    self.summary[name]["blocked"] += 1
+        self.log_summary(time.monotonic() - started)
+
+    async def run_site(self, adapter: SiteAdapter) -> None:
+        name = adapter.name
+        if not await adapter.ensure_logged_in():
+            if not await terminal.wait_for_login(name) or not await adapter.ensure_logged_in():
+                log.warning(f"skipping {name}: not logged in")
+                return
+
+        cap = self.search.daily_caps.get(name, 20)
+        used = self.db.applied_count(name)
+        remaining = cap - used
+        if self.limit is not None:
+            remaining = min(remaining, self.limit)
+        log.info(f"\n=== {name} · {used}/{cap} applied today · up to {max(remaining, 0)} this run ===")
+        if remaining <= 0:
+            log.info("daily cap reached")
+            return
+
+        self.job_number = 0
+        async for job in adapter.search(self.search, self.profile):
+            if self.db.is_seen(name, job.site_job_id):
+                continue
+            if reason := skip_reason(job, self.search, self.profile):
+                self.record(job, ApplyResult(Status.SKIPPED, reason))
+                continue
+
+            await human_pause()
+            job = await adapter.get_details(job)
+            if reason := skip_reason(job, self.search, self.profile):
+                self.record(job, ApplyResult(Status.SKIPPED, reason))
+                continue
+
+            try:
+                fit = await score_fit(self.llm, self.profile, job)
+            except Exception as e:  # bad key / provider down: carry on unscored rather than abort the run
+                log.warning(f"LLM fit scoring failed ({type(e).__name__}); continuing without a score")
+                fit = None
+            if fit and fit.score < self.search.min_fit_score:
+                self.record(job, ApplyResult(Status.SKIPPED, fit.reason), fit.score)
+                continue
+
+            self.reached_submit = False
+            try:
+                result = await adapter.apply(job, self.answerer, self.confirm)
+            except BlockedError:
+                raise
+            except Exception as e:
+                result = ApplyResult(Status.FAILED, f"{type(e).__name__}: {e}",
+                                     screenshot_path=await adapter.screenshot("error"))
+            self.record(job, result, fit.score if fit else None)
+
+            if result.status == Status.APPLIED or (self.mode == Mode.DRY_RUN and self.reached_submit):
+                remaining -= 1
+                if remaining <= 0:
+                    log.info("cap reached for this run")
+                    return
+            await human_pause()
+
+    async def confirm(self, job: Job, answers: dict) -> bool:
+        self.reached_submit = True
+        if self.mode == Mode.AUTO:
+            return True
+        if self.mode == Mode.DRY_RUN:
+            await terminal.confirm_preview(job, answers)
+            return False
+        return await terminal.confirm_submit(job, answers)
+
+    def record(self, job: Job, result: ApplyResult, fit_score: int | None = None) -> None:
+        self.summary[job.site][result.status.value] += 1
+        self.job_number += 1
+        icon, label = LABELS[result.status]
+        fit = f"  [fit {fit_score}]" if fit_score is not None else ""
+        log.info(f"[{self.job_number:>3}] {icon} {label:<8} {job.company} — {display_title(job)}{fit}",
+                 extra={"status": result.status.value})
+        details = [result.reason] if result.reason else []
+        details += [f"Q: {q} → {a.value} ({a.source})" for q, a in result.answers.items()]
+        if result.screenshot_path and result.status == Status.FAILED:
+            details.append(f"screenshot: {result.screenshot_path}")
+        for line in details:
+            log.info(f"        {line}", extra={"detail": True})
+
+        if self.mode == Mode.DRY_RUN:
+            return  # dry runs leave no trace, so the real run sees the same jobs
+        reason = f"fit {fit_score}: {result.reason}" if fit_score is not None and result.reason else result.reason
+        answers = {q: a.value for q, a in result.answers.items()}
+        self.db.record(job, result.status, reason, fit_score, answers, result.screenshot_path)
+
+    def log_summary(self, seconds: float) -> None:
+        minutes, secs = divmod(int(seconds), 60)
+        log.info(f"\n=== summary · {minutes}m {secs:02d}s ===")
+        for site, counts in self.summary.items():
+            parts = [f"{LABELS[s][0].strip()} {s.value} {counts[s.value]}" for s in SUMMARY_ORDER if counts[s.value]]
+            if counts["blocked"]:
+                parts.append("⛔ blocked")
+            log.info(f"  {site:<10} " + (" · ".join(parts) or "nothing new"))

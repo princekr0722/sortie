@@ -1,0 +1,38 @@
+# Fixed test candidate; tests compute durations as of fixed dates.
+name: Test Candidate
+email: test@example.com
+phone: "+910000000000"
+current_location: Chennai, Tamil Nadu, India
+current_company: Initech
+current_title: Backend Developer
+career_start: 2023-06-01
+current_ctc_lpa: 9.5
+expected_ctc_lpa: {min: 13, max: 17, single_value: 15}
+notice_period_days: 30
+willing_to_relocate: true
+home_country: India
+work_authorization:
+  india: true
+  uae: false
+education: B.Sc, Test University (2026)
+education_aliases: [B.Sc, Bachelor, Graduate]
+skills_since:
+  Java: 2023-06-01
+  JavaScript: 2023-06-01
+  Spring Boot: 2023-06-01
+  Hibernate: 2023-06-01
+  Microservices: 2023-06-01
+  Kafka: 2023-06-01
+  Redis: 2023-06-01
+  MySQL: 2023-06-01
+  Docker: 2023-06-01
+  Kubernetes: 2023-06-01
+  Node.js: 2023-06-01
+  GCP: 2023-06-01
+  REST APIs: 2023-06-01
+  DSA: 2023-06-01
+  Event-driven architecture: 2023-06-01
+  TypeScript: 2025-08-01
+  Go: 2025-08-01
+  Python: null
+resume_pdf: tests/fixtures/resume.pdf

@@ -1,0 +1,54 @@
+# Work Tracker
+
+Status: ⬜ todo · 🟨 in progress · ✅ done · ⛔ blocked
+
+_Last updated: 2026-11-05_
+
+## Phase 1 — Core + Naukri, Instahyre, CutShort
+
+| # | Task | Feature doc | Status | Notes |
+|---|---|---|---|---|
+| 1.1 | Plan + docs (index, tracker, features) | [PLAN](PLAN.md) | ✅ | |
+| 1.2 | Project skeleton (pyproject, deps, .gitignore, .env example) | — | ✅ | |
+| 1.3 | Profile & search config + loader | [profile](features/profile-and-durations.md), [search](features/search-and-filters.md) | ✅ | |
+| 1.4 | Runtime durations (dates → years/months) + tests | [profile](features/profile-and-durations.md) | ✅ | Skill aliases (Golang→Go, k8s, JS…) |
+| 1.5 | SQLite tracking + tests | [tracking](features/tracking-db.md) | ✅ | |
+| 1.6 | Rule-based pre-filters + tests | [search](features/search-and-filters.md) | ✅ | Keywords checked in title only |
+| 1.7 | LLM client (LiteLLM), matcher, answerer + tests | [llm](features/llm-matching-and-answers.md) | ✅ | Unknown skills & money/legal questions never go to the LLM |
+| 1.8 | Browser session, run modes, CLI | [browser](features/browser-and-safety.md) | ✅ | Chrome launch verified; tested with a fake site |
+| 1.9 | Naukri adapter | [naukri](features/site-naukri.md) | 🟨 | 4 live applies OK. Chatbot verified; failed jobs now retried once. Waiting on a checkbox-type question |
+| 1.10 | Instahyre adapter | [instahyre](features/site-instahyre.md) | ⬜ | Needs your live login |
+| 1.11 | CutShort adapter | [cutshort](features/site-cutshort.md) | ⬜ | Needs your live login |
+| 1.12 | First live run (review mode, cap 3/site) | — | ⬜ | |
+| 1.13 | Answer book: `config/answers.yaml`, reused for reworded questions via LLM | [llm](features/llm-matching-and-answers.md) | ✅ | |
+| 1.14 | Better run logging: numbered per-job lines, reasons + Q&A with sources, summary, log file per run | [browser](features/browser-and-safety.md) | ✅ | `data/logs/` |
+| 1.15 | Rename to Sortie; app moved into `sortie/` (git repo root) | — | ✅ | |
+| 1.16 | Generic for any user: example configs + `sortie init`, personal config git-ignored, no hard-coded personal values, test fixtures, README | [PLAN](PLAN.md) | ✅ | |
+
+## Phase 2 — LinkedIn, Indeed
+| # | Task | Status |
+|---|---|---|
+| 2.1 | LinkedIn Easy Apply adapter | ⬜ |
+| 2.2 | Indeed Apply adapter | ⬜ |
+
+## Phase 3 — Company career pages
+| # | Task | Status |
+|---|---|---|
+| 3.1 | Greenhouse / Lever / Ashby adapters | ⬜ |
+| 3.2 | browser-use fallback (Workday / custom) | ⬜ |
+| 3.3 | External queue processing | ⬜ |
+
+## Extras
+| # | Task | Status |
+|---|---|---|
+| X.1 | JobSpy discovery | ⬜ |
+| X.2 | Per-job resume tailoring | ⬜ |
+| X.3 | Daily schedule (launchd) | ⬜ |
+| X.4 | SQLite dashboard | ⬜ |
+
+## Setup checklist (each user)
+- [ ] `sortie init`, then fill in `config/profile.yaml` and `config/search.yaml`.
+- [ ] Put your resume PDF in `resumes/` and set `resume_pdf`.
+- [ ] Optional: `LLM_MODEL` / `LLM_API_KEY` (/ `LLM_API_BASE`) in `config/.env`.
+- [ ] `sortie login naukri` once.
+- [ ] Make sure your Naukri profile's current city is right (Naukri pre-fills it into the apply chatbot).
