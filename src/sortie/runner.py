@@ -71,6 +71,7 @@ class Runner:
                 log.warning(f"skipping {name}: not logged in")
                 return
 
+        await adapter.before_jobs()
         cap = self.search.daily_caps.get(name, 20)
         used = self.db.applied_count(name)
         remaining = cap - used
@@ -79,8 +80,12 @@ class Runner:
         log.info(f"\n=== {name} · {used}/{cap} applied today · up to {max(remaining, 0)} this run ===")
         if remaining <= 0:
             log.info("daily cap reached")
-            return
+        else:
+            await self.apply_jobs(adapter, remaining)
+        await adapter.after_jobs(self.answerer, self.confirm)
 
+    async def apply_jobs(self, adapter: SiteAdapter, remaining: int) -> None:
+        name = adapter.name
         self.job_number = 0
         async for job in adapter.search(self.search, self.profile):
             if self.db.is_seen(name, job.site_job_id):
@@ -107,10 +112,13 @@ class Runner:
             self.reached_submit = False
             try:
                 result = await adapter.apply(job, self.answerer, self.confirm)
-            except BlockedError:
+            except BlockedError as e:
+                if e.result:
+                    self.record(job, e.result, fit.score if fit else None)
                 raise
             except Exception as e:
-                result = ApplyResult(Status.FAILED, f"{type(e).__name__}: {e}",
+                first_line = str(e).strip().splitlines()[0] if str(e).strip() else ""  # not Playwright's call log
+                result = ApplyResult(Status.FAILED, f"{type(e).__name__}: {first_line}",
                                      screenshot_path=await adapter.screenshot("error"))
             self.record(job, result, fit.score if fit else None)
 

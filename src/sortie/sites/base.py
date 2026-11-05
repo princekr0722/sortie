@@ -20,13 +20,22 @@ DEBUG_DIR = PROJECT_ROOT / "data" / "debug"
 ConfirmSubmit = Callable[[Job, dict], Awaitable[bool]]
 
 BLOCK_PATTERNS = re.compile(
-    r"captcha|unusual (activity|traffic)|verify you are (a )?human|are you a robot|access denied|too many requests",
+    r"captcha|unusual (activity|traffic)|verify you are (a )?human|are you a robot|access denied|too many requests"
+    r"|performing security verification|not a bot",
     re.IGNORECASE,
 )
 
 
+CHALLENGE_TITLE = re.compile(r"just a moment|attention required", re.IGNORECASE)
+
+
 class BlockedError(Exception):
-    """The site showed a captcha or rate-limit page; stop using it for this run."""
+    """The site showed a captcha or rate-limit page; stop using it for this run.
+    `result` is the outcome of the job in progress, so the runner can still record it."""
+
+    def __init__(self, message: str, result: ApplyResult | None = None):
+        super().__init__(message)
+        self.result = result
 
 
 class SiteAdapter(ABC):
@@ -48,12 +57,26 @@ class SiteAdapter(ABC):
     @abstractmethod
     async def apply(self, job: Job, answerer: Answerer, confirm: ConfirmSubmit) -> ApplyResult: ...
 
+    async def before_jobs(self) -> None:
+        """Optional site work before applying (e.g. reading the inbox)."""
+
+    async def after_jobs(self, answerer: Answerer, confirm: ConfirmSubmit) -> None:
+        """Optional site work after applying (e.g. answering recruiter questionnaires)."""
+
     async def check_blocked(self) -> None:
+        await self._wait_out_challenge()
         title = await self.page.title()
         body = await self.page.locator("body").inner_text(timeout=5000)
         if BLOCK_PATTERNS.search(title) or BLOCK_PATTERNS.search(body[:3000]):
             await self.screenshot("blocked")
             raise BlockedError(f"{self.name}: blocked ({title!r})")
+
+    async def _wait_out_challenge(self, seconds: int = 20) -> None:
+        """Cloudflare's "Just a moment..." check usually clears by itself in a real (visible) browser."""
+        for _ in range(seconds):
+            if not CHALLENGE_TITLE.search(await self.page.title()):
+                return
+            await self.page.wait_for_timeout(1000)
 
     async def screenshot(self, tag: str) -> str:
         SCREENSHOT_DIR.mkdir(parents=True, exist_ok=True)

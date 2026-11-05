@@ -1,0 +1,116 @@
+{
+ "meta": {
+  "total_count": 3,
+  "next": null
+ },
+ "objects": [
+  {
+   "resource_uri": "/api/v1/candidate_opportunities/candidate_matching/0",
+   "score": null,
+   "is_active": true,
+   "interview_status": 0,
+   "creation_source": null,
+   "id": "0",
+   "is_location_match": null,
+   "is_strong_match": null,
+   "employer": {
+    "company_name": "Acme Analytics"
+   },
+   "job": {
+    "resource_uri": "/api/v1/candidatejob/900001",
+    "opportunity_url": "/job-900001-associate-analyst-at-acme-analytics-chennai/",
+    "employer_profile_url": "",
+    "hiring_company_name": "Acme Analytics",
+    "candidate_title": "Associate Analyst",
+    "is_internship": false,
+    "id": 900001,
+    "title": "Associate Analyst",
+    "is_active": true,
+    "locations": "Chennai",
+    "keywords": [
+     "Python",
+     "SQL",
+     "Scala"
+    ],
+    "accept_outstation": true,
+    "gender": 0,
+    "is_sourced": false
+   }
+  },
+  {
+   "resource_uri": "/api/v1/candidate_opportunities/candidate_matching/0",
+   "score": null,
+   "is_active": true,
+   "interview_status": 0,
+   "creation_source": null,
+   "id": "0",
+   "is_location_match": null,
+   "is_strong_match": null,
+   "employer": {
+    "company_name": "Globex"
+   },
+   "job": {
+    "resource_uri": "/api/v1/candidatejob/900002",
+    "opportunity_url": "/job-900002-backend-engineer-at-globex-mumbai/",
+    "employer_profile_url": "",
+    "hiring_company_name": "Globex",
+    "candidate_title": "Backend Engineer",
+    "is_internship": false,
+    "id": 900002,
+    "title": "Backend Engineer",
+    "is_active": true,
+    "locations": "Mumbai,Pune",
+    "keywords": [
+     "AWS",
+     "Golang",
+     "Java",
+     "Azure",
+     "GCP",
+     "Go",
+     "Microservices"
+    ],
+    "accept_outstation": true,
+    "gender": 0,
+    "is_sourced": false
+   }
+  },
+  {
+   "resource_uri": "/api/v1/candidate_opportunities/candidate_matching/0",
+   "score": null,
+   "is_active": true,
+   "interview_status": 0,
+   "creation_source": null,
+   "id": "0",
+   "is_location_match": null,
+   "is_strong_match": null,
+   "employer": {
+    "company_name": "Initrode"
+   },
+   "job": {
+    "resource_uri": "/api/v1/candidatejob/900003",
+    "opportunity_url": "/job-900003-ai-fullstack-engineer-at-initrode-bangalore/",
+    "employer_profile_url": "",
+    "hiring_company_name": "Initrode",
+    "candidate_title": "AI Fullstack Engineer",
+    "is_internship": false,
+    "id": 900003,
+    "title": "AI Fullstack Engineer",
+    "is_active": true,
+    "locations": "Bangalore",
+    "keywords": [
+     "AWS",
+     "Python",
+     "TypeScript",
+     "LangChain",
+     "LangGraph",
+     "LlamaIndex",
+     "Next.js",
+     "RAG"
+    ],
+    "accept_outstation": true,
+    "gender": 0,
+    "is_sourced": false
+   }
+  }
+ ]
+}

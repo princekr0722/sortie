@@ -30,7 +30,7 @@ Per site: login check → daily cap check → search → skip seen jobs → pre-
 ## Site adapter contract (`sites/base.py`)
 - `ensure_logged_in`, `search` (async generator), `get_details`, `apply(job, answerer, confirm)`.
 - Adapters call `confirm(job, answers)` right before clicking submit; the runner decides by mode.
-- `check_blocked()` raises `BlockedError` on captcha / "unusual activity" / rate-limit pages, which stops that site for the run.
+- `check_blocked()` first waits up to 20 s for a Cloudflare "Just a moment…" check to clear, then raises `BlockedError` on captcha / "unusual activity" / "Access Denied" / security-verification / rate-limit pages, which stops that site for the run.
 - `screenshot(tag)` saves to `data/screenshots/`.
 
 ## Logging (`log.py`)

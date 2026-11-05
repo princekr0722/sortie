@@ -19,7 +19,7 @@ experience_range: [2, 5]
 min_fit_score: 65
 exclude_companies: [Your Current Company]
 exclude_keywords: [intern, lead, manager]
-daily_caps: {naukri: 40, instahyre: 30, cutshort: 30}
+daily_caps: {naukri: 40, instahyre: 30, cutshort: 30}   # Naukri itself seems to stop accepting applies around ~50/day
 headless: false
 mode: review                         # review | auto
 ```

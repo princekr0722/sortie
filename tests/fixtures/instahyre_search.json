@@ -1,0 +1,189 @@
+{
+ "meta": {
+  "total_count": 622
+ },
+ "objects": [
+  {
+   "resource_uri": "/api/v1/job_search/449522",
+   "employer": {
+    "resource_uri": "/api/v1/candidate_opportunity_employer/12689",
+    "profile_image_src": "https://media.instahyre.com/images/profile/base/employer/12689/90758038fd/0_-_2019-07-17T184721.815.webp",
+    "id": 12689,
+    "company_name": "Zensar",
+    "company_tagline": "Unlocking Exponential Value Today | For Enterprises Of Tomorrow",
+    "company_founded": 2001,
+    "employee_count": 1000,
+    "instahyre_note": "Zensar provides digital and technology services to global businesses, helping them improve performance through transformation and stronger core systems.",
+    "instahyre_note_short": "Zensar provides digital and technology services that help businesses improve systems.",
+    "show_diversity_employer_icon": false,
+    "show_featured_employer_icon": false
+   },
+   "interview_status": null,
+   "reviewed_at": null,
+   "public_url": "https://www.instahyre.com/job-449522-java-at-zensar-pune/",
+   "is_strong_match": null,
+   "score": null,
+   "candidate_title": "Java",
+   "id": 449522,
+   "title": "Java",
+   "locations": "Pune",
+   "keywords": [
+    "API",
+    "Java",
+    "Microservices",
+    "REST",
+    "Spring",
+    "Spring Boot"
+   ],
+   "accept_outstation": true,
+   "gender": 0,
+   "is_sourced": true,
+   "sourced_apply_url": "https://fa-etvl-saasfaprod1.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1/job/152653?utm_source=instahyre"
+  },
+  {
+   "resource_uri": "/api/v1/job_search/17001",
+   "employer": {
+    "resource_uri": "/api/v1/candidate_opportunity_employer/6992",
+    "profile_image_src": "https://media.instahyre.com/images/profile/base/employer/6992/59acf99b62/47497857_309202126470355_3542562117494243328_.webp",
+    "id": 6992,
+    "company_name": "thinkify.io",
+    "company_tagline": "Engineering Simplified",
+    "company_founded": 2018,
+    "employee_count": 10,
+    "instahyre_note": "thinkify.io provides UI/UX design, DevOps, mobile, test automation, and web development services to tech clients, including Swiggy and Zoomcar today.",
+    "instahyre_note_short": "thinkify.io provides UI/UX, DevOps, mobile, testing, and web development services.",
+    "show_diversity_employer_icon": false,
+    "show_featured_employer_icon": false
+   },
+   "interview_status": null,
+   "reviewed_at": null,
+   "public_url": "https://www.instahyre.com/job-17001-java-developer-at-thinkify-2-bangalore/",
+   "is_strong_match": null,
+   "score": null,
+   "candidate_title": "Java Developer",
+   "id": 17001,
+   "title": "Java Developer",
+   "locations": "Bangalore",
+   "keywords": [
+    "Java",
+    "MongoDB",
+    "MySQL",
+    "NoSQL",
+    "Redis"
+   ],
+   "accept_outstation": true,
+   "gender": 0,
+   "is_sourced": false
+  },
+  {
+   "resource_uri": "/api/v1/job_search/448877",
+   "employer": {
+    "resource_uri": "/api/v1/candidate_opportunity_employer/17930",
+    "profile_image_src": "https://media.instahyre.com/images/profile/base/employer/17930/e67c29607a/Screenshot_from_2020-01-28_18-06-33.webp",
+    "id": 17930,
+    "company_name": "Globex Lending",
+    "company_tagline": "Revolutionising the lending industry",
+    "company_founded": 2019,
+    "employee_count": 10,
+    "instahyre_note": "Globex Lending builds lending software for banks and NBFCs.",
+    "instahyre_note_short": "",
+    "show_diversity_employer_icon": false,
+    "show_featured_employer_icon": false
+   },
+   "interview_status": null,
+   "reviewed_at": null,
+   "public_url": "https://www.instahyre.com/job-448877-java-developer-at-globex-lending-pune/",
+   "is_strong_match": null,
+   "score": null,
+   "candidate_title": "Java Developer",
+   "id": 448877,
+   "title": "Java Developer",
+   "locations": "Pune",
+   "keywords": [
+    "Java",
+    "Microservices",
+    "Spring",
+    "Spring Mvc"
+   ],
+   "accept_outstation": true,
+   "gender": 0,
+   "is_sourced": false
+  },
+  {
+   "resource_uri": "/api/v1/job_search/443913",
+   "employer": {
+    "resource_uri": "/api/v1/candidate_opportunity_employer/20108",
+    "profile_image_src": "https://media.instahyre.com/images/profile/base/employer/20108/bb7b528ea9/0.webp",
+    "id": 20108,
+    "company_name": "Wissen Technology",
+    "company_tagline": "Accelerate digital transformation",
+    "company_founded": 2015,
+    "employee_count": 1000,
+    "instahyre_note": "Wissen Technology is a specialized technology practice for high end consulting geared towards Banking & Finance, Telecom, and Healthcare using technologies such as AI, ML, bid data analytics, etc. ",
+    "instahyre_note_short": "",
+    "show_diversity_employer_icon": false,
+    "show_featured_employer_icon": false
+   },
+   "interview_status": null,
+   "reviewed_at": null,
+   "public_url": "https://www.instahyre.com/job-443913-java-developer-at-wissen-technology-bangalore/",
+   "is_strong_match": null,
+   "score": null,
+   "candidate_title": "Java Developer",
+   "id": 443913,
+   "title": "Java Developer",
+   "locations": "Bangalore",
+   "keywords": [
+    "Collection",
+    "Concurrency",
+    "Java",
+    "Microservices",
+    "Multithreading",
+    "SQL",
+    "Spring",
+    "Spring Boot"
+   ],
+   "accept_outstation": true,
+   "gender": 0,
+   "is_sourced": false
+  },
+  {
+   "resource_uri": "/api/v1/job_search/446467",
+   "employer": {
+    "resource_uri": "/api/v1/candidate_opportunity_employer/17930",
+    "profile_image_src": "https://media.instahyre.com/images/profile/base/employer/17930/e67c29607a/Screenshot_from_2020-01-28_18-06-33.webp",
+    "id": 17930,
+    "company_name": "Globex Lending",
+    "company_tagline": "Revolutionising the lending industry",
+    "company_founded": 2019,
+    "employee_count": 10,
+    "instahyre_note": "Globex Lending builds lending software for banks and NBFCs.",
+    "instahyre_note_short": "",
+    "show_diversity_employer_icon": false,
+    "show_featured_employer_icon": false
+   },
+   "interview_status": null,
+   "reviewed_at": null,
+   "public_url": "https://www.instahyre.com/job-446467-java-developer-at-globex-lending-pune/",
+   "is_strong_match": null,
+   "score": null,
+   "candidate_title": "Java Developer",
+   "id": 446467,
+   "title": "Java Developer",
+   "locations": "Pune",
+   "keywords": [
+    "Java",
+    "Rust",
+    "Golang",
+    "Node.js",
+    "Project Reactor",
+    "Python",
+    "Spring Boot",
+    "WebFlux"
+   ],
+   "accept_outstation": true,
+   "gender": 0,
+   "is_sourced": false
+  }
+ ]
+}
