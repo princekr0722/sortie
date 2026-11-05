@@ -1,0 +1,10 @@
+roles: [Java Backend Developer]
+locations: [Bengaluru, Hyderabad, Pune, Philippines]
+include_remote: true
+experience_range: [2, 5]
+min_fit_score: 65
+exclude_companies: [Initech]
+exclude_keywords: [intern, lead, manager, php, .net]
+daily_caps: {naukri: 40}
+headless: true
+mode: review

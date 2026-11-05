@@ -1,0 +1,15 @@
+# What to search for and how aggressively. Copy to search.yaml (`sortie init`) and edit.
+# See doc/features/search-and-filters.md
+
+roles:
+  - Java Backend Developer
+  - Software Engineer Java Spring Boot
+locations: [Bengaluru, Hyderabad, Pune]   # cities (Naukri searches Indian cities only)
+include_remote: true
+experience_range: [2, 5]                   # years; jobs whose range doesn't overlap are skipped
+min_fit_score: 65                          # 0-100, needs an LLM in config/.env
+exclude_companies: [Your Current Company]  # never apply here
+exclude_keywords: [intern, lead, manager]  # matched as whole words in the job title
+daily_caps: {naukri: 40, instahyre: 30, cutshort: 30}
+headless: false
+mode: review   # review | auto

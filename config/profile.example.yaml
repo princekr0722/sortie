@@ -1,0 +1,30 @@
+# Your details, used to fill application forms. Copy to profile.yaml (`sortie init`) and fill in.
+# Durations are stored as start dates and computed on every run — see doc/features/profile-and-durations.md
+
+name: Your Name
+email: you@example.com
+phone: "+910000000000"
+current_location: Bengaluru, Karnataka, India
+current_company: Your Company
+current_title: Software Engineer
+career_start: 2022-07-01          # first full-time job; total experience is computed from this
+current_ctc_lpa: 10               # lakhs per annum
+expected_ctc_lpa: {min: 14, max: 18, single_value: 16}   # single_value for one-number fields
+notice_period_days: 30
+willing_to_relocate: true
+home_country: India
+work_authorization:               # country -> allowed to work there without sponsorship
+  india: true
+education: B.Tech, Your University (2022)
+education_aliases: [B.Tech, B.E, Bachelor of Technology, Bachelor, Graduate, UG]   # how it may appear in dropdowns
+
+# skill -> date you started using it (null = no experience). Skills not listed are inferred by the AI.
+skills_since:
+  Java: 2022-07-01
+  Spring Boot: 2022-07-01
+  SQL: 2022-07-01
+  REST APIs: 2022-07-01
+  Docker: 2023-01-01
+  Python: null
+
+resume_pdf: resumes/resume.pdf   # put your resume PDF here
