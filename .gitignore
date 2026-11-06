@@ -7,6 +7,7 @@ config/.env
 config/profile.yaml
 config/search.yaml
 config/answers.yaml
+config/about.md
 data/
 browser-profile/
 resumes/

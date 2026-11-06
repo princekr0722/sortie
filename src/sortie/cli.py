@@ -87,7 +87,8 @@ def _report(args) -> None:
         print(f"  {site:<10} {status:<15} {count}")
 
 
-EXAMPLES = {"profile.example.yaml": "profile.yaml", "search.example.yaml": "search.yaml", ".env.example": ".env"}
+EXAMPLES = {"profile.example.yaml": "profile.yaml", "search.example.yaml": "search.yaml",
+            "about.example.md": "about.md", ".env.example": ".env"}
 
 
 def _init() -> None:
@@ -102,6 +103,7 @@ def _init() -> None:
     print("""
 Next:
   1. Fill in config/profile.yaml (your details, skill start dates) and config/search.yaml (roles, cities).
+     Optional: config/about.md (projects, achievements, preferences) for open-ended questions.
   2. Put your resume PDF in resumes/ and set resume_pdf in profile.yaml.
   3. Optional: set LLM_MODEL / LLM_API_KEY in config/.env for fit scoring and smarter answers.
   4. sortie login naukri      (log in once in the browser window)

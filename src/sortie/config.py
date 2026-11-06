@@ -120,5 +120,20 @@ def load_profile(path: Path = CONFIG_DIR / "profile.yaml") -> Profile:
     return profile
 
 
+ABOUT_MAX_CHARS = 8000  # keeps prompts small; the notes are context, not a second resume
+
+
+def load_about(path: Path = CONFIG_DIR / "about.md") -> str:
+    """Your free-form notes (projects, achievements, preferences); "" when missing or still the bare template."""
+    if not path.exists():
+        return ""
+    strip = lambda raw: re.sub(r"<!--.*?-->", "", raw, flags=re.DOTALL).strip()
+    text = strip(path.read_text())
+    example = path.with_name("about.example.md")
+    if path != example and example.exists() and text == strip(example.read_text()):
+        return ""  # untouched copy of the template: its sample projects aren't yours
+    return text[:ABOUT_MAX_CHARS]
+
+
 def load_search(path: Path = CONFIG_DIR / "search.yaml") -> SearchConfig:
     return SearchConfig.model_validate(_read_yaml(path))

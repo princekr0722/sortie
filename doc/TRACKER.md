@@ -20,6 +20,7 @@ _Last updated: 2026-11-05_
 | 1.10 | Instahyre adapter | [instahyre](features/site-instahyre.md) | ✅ | Apply verified live |
 | 1.10a | Instahyre: recommended opportunities before search | [instahyre](features/site-instahyre.md) | ✅ | |
 | 1.10b | Instahyre inbox: last 10 conversations awaiting your reply → answer questionnaires at the end, log other messages | [instahyre](features/site-instahyre.md) | 🟨 | Built + dry-run on a real questionnaire; needs a live `--review` run |
+| 1.17 | `config/about.md` notes (template + `sortie init`), used only for open questions and skill inference | [llm](features/llm-matching-and-answers.md) | ✅ | |
 | 1.11 | CutShort adapter | [cutshort](features/site-cutshort.md) | ⬜ | Needs your live login |
 | 1.12 | First live run (review mode, cap 3/site) | — | ⬜ | |
 | 1.13 | Answer book: `config/answers.yaml`, reused for reworded questions via LLM | [llm](features/llm-matching-and-answers.md) | ✅ | |
@@ -49,7 +50,7 @@ _Last updated: 2026-11-05_
 | X.4 | SQLite dashboard | ⬜ |
 
 ## Setup checklist (each user)
-- [ ] `sortie init`, then fill in `config/profile.yaml` and `config/search.yaml`.
+- [ ] `sortie init`, then fill in `config/profile.yaml` and `config/search.yaml` (optional: `config/about.md`).
 - [ ] Put your resume PDF in `resumes/` and set `resume_pdf`.
 - [ ] Optional: `LLM_MODEL` / `LLM_API_KEY` (/ `LLM_API_BASE`) in `config/.env`.
 - [ ] `sortie login naukri` and `sortie login instahyre` once.

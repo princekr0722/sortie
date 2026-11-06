@@ -100,3 +100,15 @@ async def test_block_during_apply_records_job_and_stops_site(make_runner):
     with pytest.raises(BlockedError):
         await r.run_site(LimitedSite(jobs(3)))
     assert r.summary["fake"]["failed"] == 1 and r.db.is_seen("fake", "0") is False  # failed once: retried later
+
+
+async def test_job_lines_show_applied_progress(make_runner, caplog):
+    import logging
+    r = make_runner(Mode.AUTO, limit=2)
+    with caplog.at_level(logging.INFO, logger="sortie"):
+        from sortie.log import log
+        log.propagate = True
+        r.run_target = 2
+        await r.apply_jobs(FakeSite(jobs(3)), 2)
+    lines = [m for m in caplog.messages if "APPLIED" in m]
+    assert lines[0].startswith("[  1 · 1/2 ✅]") and lines[1].startswith("[  2 · 2/2 ✅]")

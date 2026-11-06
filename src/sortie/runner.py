@@ -8,7 +8,7 @@ from collections import Counter
 
 from sortie import terminal
 from sortie.browser import Browser, human_pause
-from sortie.config import Profile, SearchConfig
+from sortie.config import Profile, SearchConfig, load_about
 from sortie.db import Database
 from sortie.filters import skip_reason
 from sortie.llm.answer_book import AnswerBook
@@ -45,10 +45,11 @@ class Runner:
         self.mode = mode
         self.headless = headless
         self.limit = limit
-        self.answerer = Answerer(profile, book or AnswerBook(), llm, terminal.ask_user)
+        self.answerer = Answerer(profile, book or AnswerBook(), llm, terminal.ask_user, about=load_about())
         self.summary: dict[str, Counter] = {}
         self.reached_submit = False  # dry runs count a job once it gets as far as the submit step
         self.job_number = 0
+        self.run_target = 0  # applications wanted from the current site this run (cap/limit)
 
     async def run(self, sites: list[str]) -> None:
         started = time.monotonic()
@@ -81,6 +82,7 @@ class Runner:
         if remaining <= 0:
             log.info("daily cap reached")
         else:
+            self.run_target = remaining
             await self.apply_jobs(adapter, remaining)
         await adapter.after_jobs(self.answerer, self.confirm)
 
@@ -143,7 +145,9 @@ class Runner:
         self.job_number += 1
         icon, label = LABELS[result.status]
         fit = f"  [fit {fit_score}]" if fit_score is not None else ""
-        log.info(f"[{self.job_number:>3}] {icon} {label:<8} {job.company} — {display_title(job)}{fit}",
+        applied = self.summary[job.site][Status.APPLIED.value]
+        progress = f"{applied}/{self.run_target} ✅" if self.run_target else f"{applied} ✅"
+        log.info(f"[{self.job_number:>3} · {progress}] {icon} {label:<8} {job.company} — {display_title(job)}{fit}",
                  extra={"status": result.status.value})
         details = [result.reason] if result.reason else []
         details += [f"Q: {q} → {a.value} ({a.source})" for q, a in result.answers.items()]
