@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import date
 from functools import lru_cache
@@ -38,7 +39,9 @@ def resume_text(path: Path) -> str:
     if not path.exists():
         log.warning(f"resume not found at {path}; set resume_pdf in config/profile.yaml")
         return ""
-    return "\n".join(page.extract_text() or "" for page in PdfReader(path).pages)
+    text = " ".join(page.extract_text() or "" for page in PdfReader(path).pages)
+    # some PDFs extract one word per line; collapse whitespace so prompts stay compact and readable
+    return re.sub(r"\s+", " ", text).strip()
 
 
 def profile_summary(profile: Profile, today: date | None = None) -> str:
