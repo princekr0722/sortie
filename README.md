@@ -13,11 +13,12 @@ It applies selectively: every job goes through your filters and an optional LLM 
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
-.venv/bin/sortie init            # creates config/profile.yaml, config/search.yaml, config/.env
+.venv/bin/sortie init            # creates config/profile.yaml, search.yaml, about.md, .env
 ```
 Then:
 1. **`config/profile.yaml`**: your details. Experience is stored as **start dates** (`career_start`, `skills_since`) and computed on every run, so it never goes stale.
 2. **`config/search.yaml`**: roles, cities, experience range, companies/keywords to exclude, daily caps.
+   **`config/about.md`** (optional): your projects, achievements and preferences in your own words. The AI reads it only for open-ended questions ("describe a project…") and to judge experience in skills not listed in your profile.
 3. **Resume**: put the PDF in `resumes/` and set `resume_pdf`.
 4. **LLM (optional, recommended)** in `config/.env`:
    ```
@@ -46,7 +47,7 @@ Add `--headless` to run without a visible window.
 - Logs: `data/logs/`. Screenshots and debug pages: `data/screenshots/`, `data/debug/`. History: `data/applier.db`.
 
 ## Privacy
-Everything personal stays local and is git-ignored: `config/profile.yaml`, `search.yaml`, `answers.yaml`, `.env`, `resumes/`, `data/`, and `browser-profile/` (your site logins). No passwords are stored.
+Everything personal stays local and is git-ignored: `config/profile.yaml`, `search.yaml`, `about.md`, `answers.yaml`, `.env`, `resumes/`, `data/`, and `browser-profile/` (your site logins). No passwords are stored.
 
 ## Use responsibly
 Automating applications may conflict with a site's terms of service and can get accounts restricted. Keep daily caps modest, start in `--review` mode, and only apply to jobs you'd actually take.

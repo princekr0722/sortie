@@ -191,3 +191,42 @@ def test_questionnaire_style_questions(profile):
     assert ans(profile, offer) is ASK_USER
     assert question_kind("This job is based out of Jaipur, 5 days WFO. Comfortable?", [], False) == K.TEXT
     assert question_kind("Mention your current CTC.", [], False) == K.DECIMAL
+
+
+def test_load_about_strips_template_comments(tmp_path):
+    from sortie.config import CONFIG_DIR, load_about
+    assert load_about(tmp_path / "missing.md") == ""
+    notes = tmp_path / "about.md"
+    notes.write_text("<!-- instructions -->\n## Projects\n- Built a Kafka pipeline\n")
+    assert load_about(notes) == "## Projects\n- Built a Kafka pipeline"
+    assert "Order tracking service" in load_about(CONFIG_DIR / "about.example.md")
+    copy = tmp_path / "copy" / "about.md"
+    copy.parent.mkdir()
+    (copy.parent / "about.example.md").write_text((CONFIG_DIR / "about.example.md").read_text())
+    copy.write_text((CONFIG_DIR / "about.example.md").read_text())
+    assert load_about(copy) == ""  # an unedited copy of the template is ignored
+
+
+class RecordingLLM(FakeLLM):
+    async def complete_json(self, system, user):
+        self.prompt = user
+        return await super().complete_json(system, user)
+
+
+async def test_about_only_sent_when_needed(profile, tmp_path):
+    notes = "## Projects\n- Search service on Elasticsearch, 2024"
+    book = AnswerBook(tmp_path / "answers.yaml")
+
+    open_q = RecordingLLM({"answer": "I built a search service on Elasticsearch.", "confidence": 0.9})
+    await Answerer(profile, book, open_q, None, about=notes).answer(Question("Describe a project you're proud of"), JOB)
+    assert notes in open_q.prompt
+
+    skill = RecordingLLM({"answer": "1", "confidence": 0.8})
+    await Answerer(profile, book, skill, None, about=notes).answer(
+        Question("Years of experience in Elasticsearch", K.NUMBER), JOB)
+    assert notes in skill.prompt
+
+    yes_no = RecordingLLM({"answer": "Yes", "confidence": 0.9})
+    await Answerer(profile, book, yes_no, None, about=notes).answer(
+        Question("Can you attend a virtual interview?", K.CHOICE, ["Yes", "No"]), JOB)
+    assert notes not in yes_no.prompt

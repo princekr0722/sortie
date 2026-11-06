@@ -39,6 +39,7 @@ job-applier/                  # outer folder (not in git)
     ├── config/
     │   ├── profile.example.yaml  → profile.yaml (yours, git-ignored)   → features/profile-and-durations.md
     │   ├── search.example.yaml   → search.yaml  (yours, git-ignored)   → features/search-and-filters.md
+    │   ├── about.example.md      → about.md     (yours, git-ignored)   → features/llm-matching-and-answers.md
     │   ├── .env.example          → .env         (yours, git-ignored)
     │   └── answers.yaml          # your saved answers (git-ignored)
     ├── resumes/              # your resume PDF (git-ignored)

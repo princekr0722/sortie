@@ -34,7 +34,7 @@ Per site: login check → daily cap check → search → skip seen jobs → pre-
 - `screenshot(tag)` saves to `data/screenshots/`.
 
 ## Logging (`log.py`)
-- Console: one line per job, numbered per site: `[  4] ·  SKIPPED  Acme — Java Developer  [fit 55]`, then indented detail lines: the reason, each question asked with its answer and source (`profile`, `your answers`, `llm`, `user`), and the screenshot path for failures. Colour by outcome (green applied, cyan external, red failed, dim skipped/details, yellow warnings) when the terminal supports it; detail lines are cut to terminal width.
+- Console: one line per job, numbered per site, with applications so far / this run's target: `[  4 · 1/10 ✅] ·  SKIPPED  Acme — Java Developer  [fit 55]`, then indented detail lines: the reason, each question asked with its answer and source (`profile`, `your answers`, `llm`, `user`), and the screenshot path for failures. Colour by outcome (green applied, cyan external, red failed, dim skipped/details, yellow warnings) when the terminal supports it; detail lines are cut to terminal width.
 - Site header shows today's usage: `=== naukri · 12/40 applied today · up to 10 this run ===`; search progress lines show role · city · page → jobs found.
 - Summary at the end with run time and counts per site, plus the path of the full log.
 - Full log per run in `data/logs/run-<timestamp>.log`: timestamps, nothing truncated.

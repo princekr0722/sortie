@@ -18,7 +18,7 @@ Sortie finds jobs on Indian job portals, scores them against the user's resume, 
 
 ## Keep it generic: no personal data in the repo
 - Sortie is for anyone. Code, tests and docs must not contain the user's name, contact details, CTC, DOB, employer, home city, or the companies they applied to.
-- Personal facts live only in git-ignored files: `config/profile.yaml`, `config/search.yaml`, `config/answers.yaml`, `config/.env`, `resumes/`, `data/`, `browser-profile/`. Ship `*.example` files instead (`sortie init` copies them).
+- Personal facts live only in git-ignored files: `config/profile.yaml`, `config/search.yaml`, `config/about.md`, `config/answers.yaml`, `config/.env`, `resumes/`, `data/`, `browser-profile/`. Ship `*.example` files instead (`sortie init` copies them).
 - Behaviour comes from config (`education_aliases`, `home_country`, `work_authorization`, `skills_since`, …), never from hard-coded personal values.
 - Tests use `tests/fixtures/` (the fake "Test Candidate", employer "Initech"), never `config/`.
 - Docs use placeholders (Acme, "Your Name", `you@example.com`).

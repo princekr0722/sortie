@@ -33,6 +33,8 @@ skills_since:                     # skill -> date you started using it (null = n
 resume_pdf: resumes/resume.pdf
 ```
 
+Longer context (projects, achievements, preferences) goes in `config/about.md`, not here. See [llm-matching-and-answers.md](llm-matching-and-answers.md).
+
 ## Duration rules
 - Duration = run date − start date, in whole months.
 - Integer "years" field → whole years, rounded down (3y 2m → `3`).

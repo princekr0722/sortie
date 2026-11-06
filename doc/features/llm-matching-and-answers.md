@@ -46,6 +46,12 @@ Resolution order for each question:
 - An LLM reply that isn't JSON is offered to you as a suggestion, never auto-accepted.
 - **Country** for visa / authorization questions: any country in `work_authorization` named in the question or job location (cities count), else `home_country`.
 
+## Your notes (`config/about.md`)
+- Free-form Markdown about you: projects, achievements, why you're looking, what you want. Created by `sortie init` from `config/about.example.md`; git-ignored.
+- Sent to the LLM (with the resume) **only** for open text questions ("Describe a project…", "Why are you looking…") and for inferring experience in a skill missing from `skills_since`. Never for choice, number, CTC or notice questions, keeping those prompts small.
+- Open questions get 2–4 first-person sentences built only from your notes and resume; if they don't cover it, low confidence → asked to you.
+- `<!-- comments -->` are dropped, the text is capped at 8,000 characters, and an **unedited copy of the template is ignored** (its sample projects aren't yours).
+
 ## Guardrails
 - Questions about salary, CTC, visa, sponsorship, authorization, criminal record, disability, gender, caste, religion, bonds or legal matters are never answered by the LLM. If no rule covers them, you're asked.
 - Experience in a skill **in** the profile always comes from its date, never from the LLM.

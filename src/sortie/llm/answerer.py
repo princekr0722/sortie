@@ -46,6 +46,8 @@ The answer is typed into the form as-is: keep it short and form-ready, never exp
 For a conditional question that doesn't apply (e.g. "if you worked at X, share your ID"), answer "Not applicable".
 If the candidate's previous answers include the same or a reworded question, reuse that answer with
 high confidence and set "from_previous_answer": true.
+For an open question (describe a project, why you're looking, tell us about your experience with X), write
+2-4 first-person sentences from the candidate's notes and resume only; if they don't cover it, use low confidence.
 Reply with only a JSON object: {"answer": "<text>", "confidence": <0-1>, "from_previous_answer": <true|false>}.
 For a choice question the answer must be exactly one of the options; for a multi-choice question
 "answer" is a list of options."""
@@ -280,9 +282,11 @@ def profile_answer(profile: Profile, q: Question, job: Job,
 
 
 class Answerer:
-    def __init__(self, profile: Profile, book: AnswerBook, llm: LLMClient, ask_user: AskUser | None):
+    def __init__(self, profile: Profile, book: AnswerBook, llm: LLMClient, ask_user: AskUser | None,
+                 about: str = ""):
         self.profile = profile
         self.book = book
+        self.about = about  # config/about.md; only sent for open questions and skill inference
         self.llm = llm
         self.ask_user = ask_user
 
@@ -347,10 +351,12 @@ class Answerer:
     async def _ask_llm(self, q: Question, job: Job, system: str,
                        with_resume: bool = False) -> tuple[Answer | None, float, bool]:
         """(answer, confidence, reused one of your previous answers)"""
-        resume = f"RESUME:\n{resume_text(self.profile.resume_pdf)}\n\n" if with_resume else ""
+        open_question = q.kind == QuestionKind.TEXT
+        resume = f"RESUME:\n{resume_text(self.profile.resume_pdf)}\n\n" if with_resume or open_question else ""
+        notes = f"CANDIDATE'S OWN NOTES:\n{self.about}\n\n" if self.about and (with_resume or open_question) else ""
         previous = f"{self.book.as_prompt()}\n\n" if self.book.entries else ""
         user = (
-            f"{resume}PROFILE:\n{profile_summary(self.profile)}\n\n{previous}"
+            f"{resume}{notes}PROFILE:\n{profile_summary(self.profile)}\n\n{previous}"
             f"JOB: {job.title} at {job.company}\n{job.description[:3000]}\n\n"
             f"QUESTION ({q.kind.value}): {q.text}\n"
             + (f"OPTIONS: {json.dumps(q.options)}\n" if q.options else "")
