@@ -46,6 +46,7 @@ Field type for chatbot text boxes: CTC / lakh / salary → decimal; "how many / 
 | Location sent as the chosen city **plus** Naukri's pre-filled profile city | Clear the text box before every answer |
 | 17 of 19 failures: clicking Save timed out ("`.sendMsgbtn_container` intercepts pointer events"); some had already navigated to `/myapply/saveApply` (submitted) | Click the outer `.sendMsgbtn_container`, wait until `.send` loses `disabled`; a click error only counts if the apply didn't go through; `/myapply/saveApply` counts as success |
 | 2 failures: multi-select questions (checkboxes) read as text, then waited for a hidden text box | Checkbox options are `.multicheckboxes-container .mcc__label` |
+| "Execution context was destroyed" while reading the page: Naukri navigated to the apply confirmation mid-check, so a real success was recorded as failed | Page checks tolerate navigation and look again; `/myapply/saveApply` or the confirmation then counts as applied |
 | Headless Chrome gets an Akamai "Access Denied" page on job pages | Run Naukri visible (default); `check_blocked` stops the site when it sees this |
 | After ~45–50 applications in a day, clicking Apply did nothing on 5 jobs in a row (no chatbot, no confirmation, no message left on the page); the first job at the same company had just gone through | Likely Naukri's daily cap (~50) or a per-company limit. A notice shown within ~6 s of clicking is now captured into the reason; after 2 no-effect clicks in a row Naukri is stopped for the run (`MAX_NO_EFFECT`) |
 

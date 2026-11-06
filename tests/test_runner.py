@@ -112,3 +112,42 @@ async def test_job_lines_show_applied_progress(make_runner, caplog):
         await r.apply_jobs(FakeSite(jobs(3)), 2)
     lines = [m for m in caplog.messages if "APPLIED" in m]
     assert lines[0].startswith("[  1 · 1/2 ✅]") and lines[1].startswith("[  2 · 2/2 ✅]")
+
+
+async def test_external_jobs_are_not_scored(make_runner, monkeypatch):
+    scored = []
+
+    async def fake_fit(llm, profile, job, about=""):
+        scored.append(job.site_job_id)
+
+    monkeypatch.setattr(runner_mod, "score_fit", fake_fit)
+    r = make_runner(Mode.AUTO)
+    external = jobs(1)[0]
+    external.site_job_id, external.external = "ext", True
+    await r.run_site(FakeSite([external] + jobs(1)))
+    assert r.summary["fake"]["external"] == 1 and scored == ["0"]
+
+
+async def test_title_screen_skips_before_opening_and_caches(make_runner, monkeypatch):
+    calls = []
+
+    async def fake_screen(llm, profile, roles, job):
+        calls.append(job.title)
+        return "title screen: SAP role" if "SAP" in job.title else None
+
+    monkeypatch.setattr(runner_mod, "screen_title", fake_screen)
+    r = make_runner(Mode.AUTO)
+    sap = jobs(2)
+    for j in sap:
+        j.title = "SAP ABAP Developer"
+    sap[0].site_job_id, sap[1].site_job_id = "sap1", "sap2"
+    await r.run_site(FakeSite(sap + jobs(1)))
+    assert r.summary["fake"]["skipped"] == 2 and r.summary["fake"]["applied"] == 1
+    assert calls.count("SAP ABAP Developer") == 1  # cached per title
+
+
+def test_pace_scales_explicit_bounds():
+    import sortie.browser as browser
+    browser.set_pace("fast")
+    assert browser._pace == (1, 3)
+    browser.set_pace("normal")

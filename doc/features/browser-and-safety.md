@@ -16,14 +16,16 @@
 
 ## CLI
 ```
-sortie run [--sites naukri,instahyre,cutshort] [--review|--auto|--dry-run] [--headless|--visible] [--limit N]
+sortie run [--sites naukri,instahyre] [--review|--auto|--dry-run] [--headless|--visible] [--limit N] [--pace careful|normal|fast]
 sortie login <site>
 sortie report [--date YYYY-MM-DD]
 ```
 Run from the project venv: `.venv/bin/sortie …`.
 
 ## Run loop (`runner.py`)
-Per site: login check → daily cap check → search → skip seen jobs → pre-filter → open details → pre-filter again → LLM fit score → apply → record → pause.
+Per site: login check → `before_jobs` hook → daily cap check → search → skip seen jobs → pre-filter (card) → **title screen** → skip if known `external` → pause → open details → pre-filter again → skip if `external` → LLM fit score → apply → record → `after_jobs` hook.
+- **Title screen** (`matcher.screen_title`): one short LLM call (~0.6 s) on the title alone, before the job page is opened. Skips only when the title clearly shows another job family (QA, mobile-only, sales…) or a platform you don't have (SAP, Salesforce, .NET, Polarion), with confidence ≥ 0.8; generic titles always pass. Cached per title for the run; a failure never blocks the job.
+- **Company-site jobs aren't scored**: Instahyre marks them in search results, Naukri on the job page (`job.external`); they're recorded `external` straight away.
 - Errors on one job are recorded as `failed` with a screenshot; the run continues.
 - `--limit N` caps this run; dry runs count a job once it reaches the submit step.
 
@@ -42,4 +44,15 @@ Per site: login check → daily cap check → search → skip seen jobs → pre-
 
 ## Safety
 - Per-site daily caps from `search.yaml` (counted from the DB).
-- Random 3–12 s pauses between jobs; `human_type` types with 40–120 ms per key.
+- **Pace** (`pace:` in `search.yaml` or `--pace`): pause before each job page: `careful` 5–12 s, `normal` 2–6 s (default), `fast` 1–3 s. Search-page pauses scale with it. Faster pace = more jobs per minute, but looks less human.
+- `human_type` types with 40–120 ms per key.
+
+## Speed (2026-11-06)
+Measured before: ~27–39 s per application plus ~12–14 s per job that ended as company-site or a low fit score (6 min for 3 applications in one run). Changes:
+| Change | Saves |
+|---|---|
+| Pace `normal` 2–6 s (was 3–12 s) before each job page | ~4 s per job opened |
+| Title screen before opening off-target jobs | ~12 s per off-target job |
+| Company-site jobs not fit-scored | ~2 s LLM call each |
+| Naukri: notice watch stops when the chatbot/confirmation appears (was a fixed 6 s) | up to ~6 s per application |
+| Naukri: page checked every 0.5 s (was 2.5 s) | ~2 s per chatbot step |

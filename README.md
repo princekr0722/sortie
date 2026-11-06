@@ -49,7 +49,8 @@ Then:
 .venv/bin/sortie run --sites naukri --dry-run            # never submits, records nothing
 .venv/bin/sortie report                                  # today's counts
 ```
-Add `--headless` to run without a visible window.
+Add `--headless` to run without a visible window (Naukri and Instahyre block headless browsers, so keep them visible).
+Add `--pace fast` for shorter pauses between pages (`careful` / `normal` / `fast`; default in `search.yaml`).
 
 - Answers you type are saved to `config/answers.yaml`. They're reused for the same question and, via the LLM, for reworded ones. You can edit the file.
 - Jobs that can only be applied to on the company's own site are recorded as `external` for a later phase.

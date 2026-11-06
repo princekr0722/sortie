@@ -31,6 +31,15 @@ Only a missing CORE requirement caps the score at 60; list only core gaps in mis
 Generic Java alone is not a match."""
 
 
+TITLE_SYSTEM = """You pre-screen job titles for a candidate before anyone reads the full posting.
+Say "relevant": false ONLY when the title alone clearly shows a different job family (e.g. QA/testing, data
+entry, sales, support, mobile-only, design) or a role built around a platform the candidate hasn't used
+(e.g. SAP, Salesforce, .NET, mainframe). When in doubt, say relevant. Generic titles ("Software Engineer",
+"Full Stack Developer", "SDE") are relevant.
+Reply with only a JSON object: {"relevant": <true|false>, "confidence": <0-1>, "reason": "<few words>"}."""
+TITLE_SKIP_CONFIDENCE = 0.8
+
+
 @dataclass
 class FitResult:
     score: int
@@ -61,6 +70,19 @@ def profile_summary(profile: Profile, today: date | None = None) -> str:
         f"Notice period: {profile.notice_period_days} days; willing to relocate: {profile.willing_to_relocate}\n"
         f"Skill experience: {'; '.join(skills)}"
     )
+
+
+async def screen_title(llm: LLMClient, profile: Profile, roles: list[str], job: Job) -> str | None:
+    """Reason to skip the job from its title alone, or None. Cheap: no job page, one short LLM call."""
+    if not llm.enabled:
+        return None
+    skills = ", ".join(name for name, since in profile.skills_since.items() if since)
+    user = (f"CANDIDATE: {profile.current_title}, {profile.total_experience().years} years; target roles: "
+            f"{'; '.join(roles)}; skills: {skills}\nJOB TITLE: {job.title} at {job.company}")
+    data = await llm.complete_json(TITLE_SYSTEM, user)
+    if data.get("relevant") is False and float(data.get("confidence", 0)) >= TITLE_SKIP_CONFIDENCE:
+        return f"title screen: {data.get('reason') or 'not a fit'}"
+    return None
 
 
 async def score_fit(llm: LLMClient, profile: Profile, job: Job, about: str = "") -> FitResult | None:

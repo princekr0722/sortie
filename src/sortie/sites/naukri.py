@@ -56,6 +56,10 @@ NOTICE_SELECTOR = "[role='alert'], [class*='toast' i], [class*='snackbar' i], [c
 # Apply clicks in a row that did nothing before Naukri is stopped for the run (likely a daily/company limit)
 MAX_NO_EFFECT = 2
 NO_EFFECT = "Apply did nothing (no questions, no confirmation)"
+# check the page every POLL_MS for up to ~50 s; a new chatbot question gets QUESTION_SETTLE_MS to render
+POLL_MS = 500
+POLL_STEPS = 100
+QUESTION_SETTLE_MS = 700
 SUCCESS_TEXT = re.compile(r"successfully applied|application (has been )?(submitted|sent)|you have applied", re.I)
 OPTION_NOISE = {"load more", "show more", "skip", "skip this question"}
 # Save every chatbot question's HTML to data/debug/ until the chatbot selectors are confirmed live
@@ -153,6 +157,12 @@ class NaukriAdapter(SiteAdapter):
         skills = await self.page.locator(SELECTORS["key_skills"]).all_inner_texts()
         if skills:
             job.description += "\n\nKey skills: " + ", ".join(dict.fromkeys(s.strip() for s in skills if s.strip()))
+        if await self.page.locator(SELECTORS["company_site_button"]).count():
+            job.external = True
+        else:
+            button = self.page.locator(SELECTORS["apply_button"])
+            if await button.count() and "company" in (await button.first.inner_text()).lower():
+                job.external = True
         salary = self.page.locator(SELECTORS["salary"])
         if not job.salary and await salary.count():
             text = (await salary.first.inner_text()).strip()
@@ -195,30 +205,44 @@ class NaukriAdapter(SiteAdapter):
         return result
 
     async def _read_notice(self) -> str:
-        """Text of a notice that flashes up right after clicking Apply, if any (gone within seconds)."""
+        """Text of a notice that flashes up right after clicking Apply, if any (gone within seconds).
+        Stops as soon as the chatbot or a confirmation shows up, since then there's nothing to catch."""
         for _ in range(12):
             await self.page.wait_for_timeout(500)
-            for text in await self.page.locator(NOTICE_SELECTOR).all_inner_texts():
-                if text.strip():
-                    return " ".join(text.split())[:200]
+            try:
+                for text in await self.page.locator(NOTICE_SELECTOR).all_inner_texts():
+                    if text.strip():
+                        return " ".join(text.split())[:200]
+                drawer = self.page.locator(SELECTORS["chat_drawer"])
+                if await drawer.count() and await drawer.first.is_visible():
+                    return ""
+                if await self._succeeded():
+                    return ""
+            except PlaywrightError:  # navigating to the apply confirmation
+                return ""
         return ""
 
     async def _finish_application(self, job: Job, answerer: Answerer) -> ApplyResult:
         answers: dict[str, Answer] = {}
         seen_questions = 0
         chat_seen = False
-        for _ in range(20):
-            await self.page.wait_for_timeout(2500)
-            if await self._succeeded():
-                return ApplyResult(Status.APPLIED, answers=answers, screenshot_path=await self.screenshot("applied"))
-            drawer = self.page.locator(SELECTORS["chat_drawer"])
-            if not await drawer.count() or not await drawer.first.is_visible():
+        for _ in range(POLL_STEPS):
+            await self.page.wait_for_timeout(POLL_MS)
+            try:
+                if await self._succeeded():
+                    await self.page.wait_for_load_state("domcontentloaded")
+                    return ApplyResult(Status.APPLIED, answers=answers, screenshot_path=await self.screenshot("applied"))
+                drawer = self.page.locator(SELECTORS["chat_drawer"])
+                if not await drawer.count() or not await drawer.first.is_visible():
+                    continue
+                chat_seen = True
+                messages = await self.page.locator(SELECTORS["chat_bot_msg"]).all_inner_texts()
+            except PlaywrightError:  # page is navigating (usually to the apply confirmation); look again
                 continue
-            chat_seen = True
-            messages = await self.page.locator(SELECTORS["chat_bot_msg"]).all_inner_texts()
             if len(messages) <= seen_questions:
                 continue
             seen_questions = len(messages)
+            await self.page.wait_for_timeout(QUESTION_SETTLE_MS)  # let the new question's options render
             q = await self._read_question(messages[-1].strip())
             answer = await answerer.answer(q, job)
             if answer is None:

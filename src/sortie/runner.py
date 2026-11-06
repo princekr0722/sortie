@@ -14,7 +14,7 @@ from sortie.filters import skip_reason
 from sortie.llm.answer_book import AnswerBook
 from sortie.llm.answerer import Answerer
 from sortie.llm.client import LLMClient
-from sortie.llm.matcher import score_fit
+from sortie.llm.matcher import score_fit, screen_title
 from sortie.log import log
 from sortie.models import ApplyResult, Job, Mode, Status
 from sortie.sites import ADAPTERS
@@ -48,6 +48,7 @@ class Runner:
         self.answerer = Answerer(profile, book or AnswerBook(), llm, terminal.ask_user, about=load_about())
         self.summary: dict[str, Counter] = {}
         self.reached_submit = False  # dry runs count a job once it gets as far as the submit step
+        self.title_cache: dict[str, str | None] = {}
         self.job_number = 0
         self.run_target = 0  # applications wanted from the current site this run (cap/limit)
 
@@ -96,10 +97,20 @@ class Runner:
                 self.record(job, ApplyResult(Status.SKIPPED, reason))
                 continue
 
+            if reason := await self.title_screen(job):
+                self.record(job, ApplyResult(Status.SKIPPED, reason))
+                continue
+            if job.external:  # known from search: no need to open or score it
+                self.record(job, ApplyResult(Status.EXTERNAL, "applies on company site"))
+                continue
+
             await human_pause()
             job = await adapter.get_details(job)
             if reason := skip_reason(job, self.search, self.profile):
                 self.record(job, ApplyResult(Status.SKIPPED, reason))
+                continue
+            if job.external:  # found on the job page; scoring it would be wasted
+                self.record(job, ApplyResult(Status.EXTERNAL, "applies on company site"))
                 continue
 
             try:
@@ -130,6 +141,17 @@ class Runner:
                     log.info("cap reached for this run")
                     return
             await human_pause()
+
+    async def title_screen(self, job: Job) -> str | None:
+        """Skip obviously off-target titles before loading the job page (cached per title for the run)."""
+        key = job.title.strip().lower()
+        if key not in self.title_cache:
+            try:
+                self.title_cache[key] = await screen_title(self.llm, self.profile, self.search.roles, job)
+            except Exception as e:  # never block a job on a flaky screen; the full fit score still runs
+                log.warning(f"title screen failed ({type(e).__name__}); checking the job page instead")
+                self.title_cache[key] = None
+        return self.title_cache[key]
 
     async def confirm(self, job: Job, answers: dict) -> bool:
         self.reached_submit = True
