@@ -15,6 +15,7 @@ from sortie.models import ApplyResult, Job
 
 SCREENSHOT_DIR = PROJECT_ROOT / "data" / "screenshots"
 DEBUG_DIR = PROJECT_ROOT / "data" / "debug"
+SCREENSHOT_QUALITY = 60  # JPEG, 0-100
 
 # (job, answers so far) -> submit? Built by the runner from the mode: dry-run says no, auto yes, review asks.
 ConfirmSubmit = Callable[[Job, dict], Awaitable[bool]]
@@ -80,8 +81,9 @@ class SiteAdapter(ABC):
 
     async def screenshot(self, tag: str) -> str:
         SCREENSHOT_DIR.mkdir(parents=True, exist_ok=True)
-        path = SCREENSHOT_DIR / f"{self.name}-{tag}-{datetime.now():%Y%m%d-%H%M%S}.png"
-        await self.page.screenshot(path=path, full_page=False)
+        path = SCREENSHOT_DIR / f"{self.name}-{tag}-{datetime.now():%Y%m%d-%H%M%S}.jpg"
+        # CSS-pixel scale (not 2x on retina) + JPEG: readable for checking a run, ~5x smaller than PNG
+        await self.page.screenshot(path=path, full_page=False, type="jpeg", quality=SCREENSHOT_QUALITY, scale="css")
         return str(path)
 
     async def debug_dump(self, tag: str) -> str:

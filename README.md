@@ -28,6 +28,15 @@ Then:
    LLM_THINKING=                          # false = disable reasoning on open models (faster)
    ```
    Without an LLM, Sortie still runs on your profile rules and saved answers, and asks you everything else.
+
+   **Free option: NVIDIA.** [build.nvidia.com](https://build.nvidia.com/models) hosts open models behind an OpenAI-compatible API with a free, rate-limited tier for development. Sign in, create a key under [API keys](https://build.nvidia.com/settings/api-keys), and use the model Sortie is tested with, [Nemotron 3.5 Lightning](https://build.nvidia.com/nvidia/nemotron-3.5-lightning-30b-a3b):
+   ```
+   LLM_MODEL=openai/nvidia/nemotron-3.5-lightning-30b-a3b
+   LLM_API_KEY=nvapi-...
+   LLM_API_BASE=https://integrate.api.nvidia.com/v1
+   LLM_THINKING=false
+   ```
+   Keep `LLM_THINKING=false`: with reasoning on, each answer takes 15–60 s instead of 1–5 s. Free-tier limits and the model list change over time; if a model stops replying, pick another from the catalog.
 5. Log in once in Sortie's browser:
    ```bash
    .venv/bin/sortie login naukri

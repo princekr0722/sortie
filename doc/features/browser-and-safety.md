@@ -31,7 +31,7 @@ Per site: login check → daily cap check → search → skip seen jobs → pre-
 - `ensure_logged_in`, `search` (async generator), `get_details`, `apply(job, answerer, confirm)`.
 - Adapters call `confirm(job, answers)` right before clicking submit; the runner decides by mode.
 - `check_blocked()` first waits up to 20 s for a Cloudflare "Just a moment…" check to clear, then raises `BlockedError` on captcha / "unusual activity" / "Access Denied" / security-verification / rate-limit pages, which stops that site for the run.
-- `screenshot(tag)` saves to `data/screenshots/`.
+- `screenshot(tag)` saves a JPEG (quality `SCREENSHOT_QUALITY` = 60, CSS-pixel scale, so not 2x on retina screens) to `data/screenshots/`: ~35 KB instead of ~170 KB as PNG.
 
 ## Logging (`log.py`)
 - Console: one line per job, numbered per site, with applications so far / this run's target: `[  4 · 1/10 ✅] ·  SKIPPED  Acme — Java Developer  [fit 55]`, then indented detail lines: the reason, each question asked with its answer and source (`profile`, `your answers`, `llm`, `user`), and the screenshot path for failures. Colour by outcome (green applied, cyan external, red failed, dim skipped/details, yellow warnings) when the terminal supports it; detail lines are cut to terminal width.
