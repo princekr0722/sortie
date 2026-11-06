@@ -18,7 +18,10 @@
 ## Fit scoring (`matcher.py`)
 - Input: resume text (extracted from the PDF) + profile summary with computed durations + full JD.
 - Output (JSON): `score` 0–100, `reason`, `missing_must_haves[]`.
-- Scoring bands in the prompt: 80–100 core stack + seniority match; 65–79 mostly matching, at most one new secondary requirement; 40–64 role built around a tool/product/domain you haven't used (Polarion, Axiom, SAP, Salesforce…) even if it mentions Java; 0–39 different job family / wrong seniority. A missing core requirement caps the score at 60.
+- The scorer gets the resume, profile **and `about.md` notes**; every skill in any of them counts as one you have.
+- It judges the **core** of the role (primary language, main framework, domain, seniority). Secondary tools are learnable and don't lower the score: CI/CD, scripting, a specific cloud, build/monitoring/testing tools, extra databases or queues. Only a missing core requirement caps the score at 60.
+- Bands: 80–100 core + seniority match; 65–79 one core element adjacent or a small seniority stretch; 40–64 role built around a tool/product/domain you haven't used (Salesforce, SAP, Polarion…); 0–39 different job family / wrong seniority.
+- Re-scored 2026-11-06 after this change: two Java/Spring Accenture roles and a Java + GenAI full-stack role went 55 → 75; a Salesforce/Apex role stayed low (10).
 - Calibration on 2026-11-05 (Nemotron 3.5 Lightning, thinking off): Polarion Developer 55, Axiom Developer 55 (skipped); Java Backend / Spring Boot / Microservices 75, Java + React Full Stack 75 (pass). The model sometimes lists skills you do have as missing (REST APIs, TypeScript), which lowers scores of good matches; watch for good jobs landing just under 65.
 - Below `min_fit_score` (65) → skipped, reason stored.
 - Each LLM request times out after 60 s with no retries. If it fails (missing/bad key, provider down, model stalled), the job continues unscored / the question goes to you, and the error is printed.
