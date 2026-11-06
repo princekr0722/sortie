@@ -34,6 +34,8 @@ mode: review                         # review | auto
 
 Every skip is stored with its reason so filters can be tuned.
 
+After these rules, an LLM **title screen** drops clearly off-target titles before the job page is opened (see [browser-and-safety.md](browser-and-safety.md#run-loop-runnerpy)).
+
 ## Notes
 - Location aliases (`LOCATION_ALIASES` in `filters.py`): Bengaluru ↔ Bangalore, Gurugram ↔ Gurgaon, Mumbai ↔ Bombay, Delhi ↔ New Delhi/NCR, Chennai ↔ Madras, …; countries list their main cities (UAE ↔ Dubai/Abu Dhabi/…, UAE ↔ Dubai/Abu Dhabi). Unknown places match by name.
 - Company match ignores suffixes (Pvt, Ltd, Inc, Technologies, India), so "Acme India Pvt Ltd" matches an exclusion of "Acme".

@@ -10,7 +10,7 @@ from datetime import date
 from dotenv import load_dotenv
 
 from sortie import terminal
-from sortie.browser import Browser
+from sortie.browser import Browser, set_pace
 from sortie.config import CONFIG_DIR, PROJECT_ROOT, load_profile, load_search
 from sortie.db import Database
 from sortie.llm.client import LLMClient
@@ -45,6 +45,7 @@ def build_parser() -> argparse.ArgumentParser:
     headless.add_argument("--headless", dest="headless", action="store_true", default=None)
     headless.add_argument("--visible", dest="headless", action="store_false")
     run.add_argument("--limit", type=int, help="max applications per site this run")
+    run.add_argument("--pace", choices=["careful", "normal", "fast"], help="pauses between pages (default: search.yaml)")
 
     login = sub.add_parser("login", help="open a site to log in manually once")
     login.add_argument("site", choices=sorted(ADAPTERS) or None)
@@ -58,6 +59,7 @@ async def _run(args) -> None:
     search = load_search()
     mode = args.mode or Mode(search.mode)
     headless = search.headless if args.headless is None else args.headless
+    set_pace(args.pace or search.pace)
     log_path = setup_logging()
     db = Database()
     try:

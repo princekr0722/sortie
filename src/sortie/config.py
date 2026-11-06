@@ -103,6 +103,7 @@ class SearchConfig(BaseModel):
     daily_caps: dict[str, int] = Field(default_factory=dict)
     headless: bool = False
     mode: Literal["review", "auto"] = "review"
+    pace: Literal["careful", "normal", "fast"] = "normal"  # pauses between page loads, see browser.PACES
 
 
 def _read_yaml(path: Path) -> dict:

@@ -31,6 +31,7 @@ class Job:
     experience: str = ""  # as shown on the site, e.g. "2-5 Yrs"
     salary: str = ""  # as shown on the site, e.g. "12-18 Lacs PA"
     description: str = ""
+    external: bool = False  # applied to on the company's own site, not on the job board
 
 
 class QuestionKind(StrEnum):

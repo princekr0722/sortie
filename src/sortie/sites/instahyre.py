@@ -107,6 +107,7 @@ class InstahyreAdapter(SiteAdapter):
                 yielded.add(job.site_job_id)
                 if (item.get("job") or {}).get("is_sourced"):
                     self.external[job.site_job_id] = ""
+                    job.external = True
                 yield job
 
         years = profile.total_experience().years
@@ -125,6 +126,7 @@ class InstahyreAdapter(SiteAdapter):
                     yielded.add(job.site_job_id)
                     if item.get("is_sourced"):
                         self.external[job.site_job_id] = item.get("sourced_apply_url") or ""
+                        job.external = True
                     yield job
                 if len(items) < PAGE_SIZE:
                     break

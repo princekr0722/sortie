@@ -38,7 +38,23 @@ class Browser:
         return await self.context.new_page()
 
 
-async def human_pause(low: float = 3, high: float = 12) -> None:
+# seconds between page loads; slower looks more human, faster gets through more jobs
+PACES = {"careful": (5, 12), "normal": (2, 6), "fast": (1, 3)}
+_pace = PACES["normal"]
+
+
+def set_pace(name: str) -> None:
+    global _pace
+    _pace = PACES[name]
+
+
+async def human_pause(low: float | None = None, high: float | None = None) -> None:
+    """Random pause; defaults to the run's pace, explicit bounds are scaled by it relative to "normal"."""
+    if low is None or high is None:
+        low, high = _pace
+    else:
+        factor = _pace[1] / PACES["normal"][1]
+        low, high = low * factor, high * factor
     await asyncio.sleep(random.uniform(low, high))
 
 

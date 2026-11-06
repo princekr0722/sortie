@@ -13,3 +13,4 @@ exclude_keywords: [intern, lead, manager]  # matched as whole words in the job t
 daily_caps: {naukri: 40, instahyre: 30, cutshort: 30}
 headless: false
 mode: review   # review | auto
+pace: normal   # careful (5-12 s) | normal (2-6 s) | fast (1-3 s) pauses between pages
