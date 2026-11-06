@@ -103,7 +103,7 @@ class Runner:
                 continue
 
             try:
-                fit = await score_fit(self.llm, self.profile, job)
+                fit = await score_fit(self.llm, self.profile, job, self.answerer.about)
             except Exception as e:  # bad key / provider down: carry on unscored rather than abort the run
                 log.warning(f"LLM fit scoring failed ({type(e).__name__}); continuing without a score")
                 fit = None

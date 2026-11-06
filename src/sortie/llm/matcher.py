@@ -15,15 +15,20 @@ from sortie.llm.client import LLMClient
 from sortie.log import log
 from sortie.models import Job
 
-SYSTEM = """You screen job postings for a candidate. Compare the job with the candidate's resume and profile.
+SYSTEM = """You screen job postings for a candidate. Compare the job with the candidate's resume, profile and notes.
+Every skill in the profile's skill list, the resume or the notes is one the candidate HAS; never call those missing.
 Reply with only a JSON object: {"score": <0-100>, "reason": "<one sentence>", "missing_must_haves": ["..."]}.
+Judge the CORE of the role: primary language, main framework, domain and seniority.
+Secondary tools are learnable on the job and must not drag the score down: CI/CD, scripting, a specific cloud
+(AWS vs Azure vs GCP), build/monitoring/testing tools, extra databases or queues, "big data exposure".
 Scoring:
-- 80-100: the role's core stack and seniority match what the candidate already does.
-- 65-79: mostly matching; at most one secondary requirement is new to the candidate.
+- 80-100: core stack and seniority match what the candidate already does (secondary gaps are fine).
+- 65-79: core mostly matches; one core element is adjacent (e.g. a related framework) or seniority is a small stretch.
 - 40-64: the role is built around a tool, product or domain the candidate hasn't used (e.g. a specific
   ALM/ERP/CRM platform, mainframe, SAP, Salesforce, embedded), even if it mentions Java.
 - 0-39: different job family or clearly wrong seniority.
-A core requirement missing from the candidate's experience caps the score at 60. Generic Java alone is not a match."""
+Only a missing CORE requirement caps the score at 60; list only core gaps in missing_must_haves.
+Generic Java alone is not a match."""
 
 
 @dataclass
@@ -58,12 +63,13 @@ def profile_summary(profile: Profile, today: date | None = None) -> str:
     )
 
 
-async def score_fit(llm: LLMClient, profile: Profile, job: Job) -> FitResult | None:
-    """None when no LLM is configured."""
+async def score_fit(llm: LLMClient, profile: Profile, job: Job, about: str = "") -> FitResult | None:
+    """None when no LLM is configured. `about` = config/about.md notes."""
     if not llm.enabled:
         return None
+    notes = f"CANDIDATE'S OWN NOTES:\n{about}\n\n" if about else ""
     user = (
-        f"RESUME:\n{resume_text(profile.resume_pdf)}\n\nPROFILE:\n{profile_summary(profile)}\n\n"
+        f"RESUME:\n{resume_text(profile.resume_pdf)}\n\n{notes}PROFILE:\n{profile_summary(profile)}\n\n"
         f"JOB: {job.title} at {job.company}\nLocation: {', '.join(job.locations)}\n"
         f"Experience: {job.experience}\nSalary: {job.salary}\n\n{job.description}"
     )
