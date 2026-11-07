@@ -2,7 +2,7 @@
 
 Status: ⬜ todo · 🟨 in progress · ✅ done · ⛔ blocked
 
-_Last updated: 2026-11-05_
+_Last updated: 2026-11-07_
 
 ## Phase 1 — Core + Naukri, Instahyre, CutShort
 
@@ -33,7 +33,10 @@ _Last updated: 2026-11-05_
 | # | Task | Status |
 |---|---|---|
 | 2.1 | LinkedIn Easy Apply adapter | ⬜ |
-| 2.2 | Indeed Apply adapter | ⬜ |
+| 2.2 | Indeed adapter: search (embedded JSON, per-country sites), job page, external detection | 🟡 Built; search, job page and Apply link verified live (logged out), 2026-11-07 |
+| 2.2a | Generic form filler (`sites/forms.py`) for Indeed Apply steps; reusable for career sites | 🟡 Built, awaiting live run |
+| 2.2c | LLM step navigator: fallback for unfamiliar form steps (click / check consent / skip / wait), with code-enforced guardrails | 🟡 Built, awaiting live run |
+| 2.2b | First logged-in `--review --limit 1` Indeed run; map the smartapply steps from debug dumps | 🟡 Contact, resume and review steps reached; employer questions, consent and review steps handled; Submit hits a reCAPTCHA that needs you (review mode waits for you, auto stops Indeed). Next: LLM fallback for unknown steps (proposed) |
 
 ## Phase 3 — Company career pages
 | # | Task | Status |

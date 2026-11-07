@@ -34,6 +34,7 @@ Resolution order for each question:
 2. **Your answers** (`config/answers.yaml`): every answer you type is appended there (question, answer, options, date). Same wording (ignoring case/punctuation) → reused directly. The whole file is also sent to the LLM with every question, so **reworded questions get your answer** too (LLM sets `from_previous_answer`). The file is yours to edit: fix or delete an entry, or pre-fill answers; the bot only appends, so comments survive. LLM answers are **not** saved there, so a wrong guess never sticks.
 3. **LLM**: profile + JD + question + options → `{answer, confidence}`. Used only when confidence ≥ 0.7.
 4. **You**: the terminal shows the question, numbered options and the LLM's guess (Enter accepts it, `s` skips the job). Your answer is appended to `config/answers.yaml`.
+   - A reply that matches no option (a typo, or stray arrow-key codes like `^[[D`) makes Sortie **ask again**; only `s` skips the job. The prompt has line editing (`readline`), so arrow keys move the cursor.
 
 ### Rule details
 - **Experience:** the skill is found by matching 1–3 word phrases against the profile with aliases (`spring boot`, `google cloud`, `node.js`, `golang`). Answers by field type: number → whole years; decimal → one decimal; choice → matching range (`3-5`, `3+`); text → "3 years 2 months"; Yes/No → Yes if any experience.
@@ -62,3 +63,11 @@ Resolution order for each question:
 - LLM answers are typed into forms verbatim, so the prompt demands short, form-ready answers with no explanations; conditional questions that don't apply get "Not applicable".
 - Choice answers must map to one of the offered options, otherwise the question goes to you.
 - With no terminal attached (no `ask_user`), an unanswerable question skips the job.
+
+## Lessons (2026-11-07, Indeed run)
+| Issue | Fix |
+|---|---|
+| A plain-text LLM reply ("3 years 2 months, confidence: 0.9, from_previous_answer: false") became the suggestion as-is. Enter accepted it, and it was typed into the form and saved to answers.yaml | `plain_answer()` keeps only the answer part (an `answer:` field, or the text before `confidence` / `from_previous_answer` / `based_on`) |
+| "total exp" and "Exp In java?" went to the LLM ("total exp → 4 to 7" was wrong) | The experience rule also matches the abbreviation `exp`, so they're computed from the profile |
+| A date field (placeholder DD/MM/YYYY) got "30 days from offer acceptance" and the form refused it | New question kind `date`: a field is a date if it's `type=date` or its placeholder is a D/M/Y pattern; the format comes from the placeholder. "When can you start / join / be available" dates = today + `notice_period_days` (profile rule). Any other date answer must parse in that format, otherwise you're asked |
+| "If Yes, please provide further details" → "no offer, answer yourself?": the LLM didn't know the previous question had been answered No | Questions carry the answers already given on the same application (`Question.context`). The LLM prompt lists them under EARLIER ANSWERS ON THIS APPLICATION, and conditional questions after a No get "Not applicable" |

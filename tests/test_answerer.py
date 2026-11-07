@@ -230,3 +230,64 @@ async def test_about_only_sent_when_needed(profile, tmp_path):
     await Answerer(profile, book, yes_no, None, about=notes).answer(
         Question("Can you attend a virtual interview?", K.CHOICE, ["Yes", "No"]), JOB)
     assert notes not in yes_no.prompt
+
+
+def test_plain_answer_strips_json_fields():
+    from sortie.llm.answerer import plain_answer
+    assert plain_answer("3 years 2 months, confidence: 0.9, from_previous_answer: false") == "3 years 2 months"
+    assert plain_answer('answer: "Yes", confidence: 0.8') == "Yes"
+    assert plain_answer("{answer: 2 years, based_on: Java}") == "2 years"
+    assert plain_answer("Bengaluru") == "Bengaluru"
+
+
+def test_exp_abbreviation_uses_profile(profile):
+    from sortie.llm.answerer import profile_answer
+    from sortie.models import Job, Question, QuestionKind
+    job = Job("indeed", "1", "u", "Dev", "Acme")
+    total = profile_answer(profile, Question("total exp", QuestionKind.NUMBER), job)
+    assert total.source == "profile"
+    java = profile_answer(profile, Question("Exp In java?", QuestionKind.TEXT), job)
+    assert java.source == "profile"
+
+
+def test_date_format_from_placeholder():
+    from sortie.llm.answerer import date_format
+    assert date_format("DD/MM/YYYY") == "%d/%m/%Y"
+    assert date_format("mm-dd-yyyy") == "%m-%d-%Y"
+    assert date_format("Search to select an option") is None and date_format("") is None
+
+
+def test_start_date_question_uses_notice_period(profile):
+    from datetime import date, timedelta
+    from sortie.llm.answerer import profile_answer
+    from sortie.models import Job, Question, QuestionKind
+    q = Question("If your application is successful, when would you be able to start employment?",
+                 QuestionKind.DATE, date_format="%d/%m/%Y")
+    answer = profile_answer(profile, q, Job("indeed", "1", "u", "Dev", "Acme"), today=date(2026, 11, 7))
+    assert answer.value == (date(2026, 11, 7) + timedelta(days=profile.notice_period_days)).strftime("%d/%m/%Y")
+
+
+def test_date_answers_must_be_dates():
+    from sortie.llm.answerer import _date_value
+    assert _date_value("07/12/2026", "%d/%m/%Y") == "07/12/2026"
+    assert _date_value("30 days from offer acceptance", "%d/%m/%Y") is None
+
+
+async def test_llm_sees_earlier_answers_on_the_form(profile, tmp_path):
+    class Capture(FakeLLM):
+        async def complete_json(self, system, user):
+            self.user = user
+            return await super().complete_json(system, user)
+    llm = Capture({"answer": "Not applicable", "confidence": 0.9})
+    a = Answerer(profile, AnswerBook(tmp_path / "answers.yaml"), llm, None)
+    q = Question("If Yes, please provide further details here", K.TEXT,
+                 context={"Is any family member employed by a government agency?": "No"})
+    assert (await a.answer(q, JOB)).value == "Not applicable"
+    assert "EARLIER ANSWERS ON THIS APPLICATION:\n- Is any family member employed by a government agency? → No" in llm.user
+
+
+async def test_llm_date_answer_must_be_a_date(profile, tmp_path):
+    a = Answerer(profile, AnswerBook(tmp_path / "answers.yaml"),
+                 FakeLLM({"answer": "after my notice period", "confidence": 0.9}), None)
+    q = Question("Date of last appraisal", K.DATE, date_format="%d/%m/%Y")
+    assert await a.answer(q, JOB) is None

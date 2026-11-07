@@ -27,6 +27,9 @@ class Browser:
             headless=self.headless,
             viewport=None,
             args=["--disable-blink-features=AutomationControlled", "--start-maximized"],
+            # --enable-automation (Playwright's default) is a strong bot signal to reCAPTCHA Enterprise,
+            # which Indeed Apply runs on every step
+            ignore_default_args=["--enable-automation"],
         )
         return self
 

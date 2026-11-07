@@ -6,7 +6,7 @@ import json
 import math
 import re
 from collections.abc import Awaitable, Callable
-from datetime import date
+from datetime import date, datetime, timedelta
 
 from sortie.config import Profile, normalize_skill
 from sortie.durations import Duration
@@ -43,7 +43,9 @@ SYSTEM = """You fill in job application screening questions for the candidate de
 Use only facts from the profile. Never invent experience, salary or legal facts; if the profile does not
 support an answer, give your best guess with low confidence.
 The answer is typed into the form as-is: keep it short and form-ready, never explain or mention the profile.
-For a conditional question that doesn't apply (e.g. "if you worked at X, share your ID"), answer "Not applicable".
+For a conditional question that doesn't apply (e.g. "if you worked at X, share your ID", or "If yes, give details"
+after an earlier answer on this application was No), answer "Not applicable".
+For a date question, answer with a date in the given DATE FORMAT only.
 If the candidate's previous answers include the same or a reworded question, reuse that answer with
 high confidence and set "from_previous_answer": true.
 For an open question (describe a project, why you're looking, tell us about your experience with X), write
@@ -65,6 +67,40 @@ Answer for the field type: number -> whole years; decimal -> years with one deci
 choice -> exactly one of the options.
 Reply with only a JSON object:
 {"answer": "<answer>", "confidence": <0-1>, "based_on": "<listed skill or resume line>", "from_previous_answer": <true|false>}."""
+
+
+# a non-JSON reply that still carries the JSON's fields: 'answer: 3 years, confidence: 0.9, from_previous_answer: false'
+_ANSWER_FIELD = re.compile(r"""(?<![\w])["']?answer["']?\s*[:=]\s*["']?(.*?)["']?\s*(?:,\s*["']?(?:confidence|from_previous_answer|based_on)\b|[}]|$)""",
+                           re.I | re.S)
+_META_TAIL = re.compile(r"""[,;]?\s*["']?(confidence|from_previous_answer|based_on)["']?\s*[:=].*$""", re.I | re.S)
+
+
+def plain_answer(text: str) -> str:
+    """The answer part of a plain-text LLM reply, without confidence / from_previous_answer fields."""
+    text = text.strip().strip("'\"` ")
+    if match := _ANSWER_FIELD.search(text):
+        text = match.group(1)
+    return _META_TAIL.sub("", text).strip().strip("'\"` ")
+
+
+def date_format(placeholder: str) -> str | None:
+    """strftime format from a field placeholder like "DD/MM/YYYY" or "mm-dd-yyyy"; None if it isn't a date."""
+    text = placeholder.strip()
+    if not re.fullmatch(r"(?i)(dd|mm|yyyy|yy)([/.\- ])(dd|mm)\2(dd|mm|yyyy|yy)", text):
+        return None
+    out = text.upper()
+    for token, code in (("YYYY", "%Y"), ("YY", "%y"), ("MM", "%m"), ("DD", "%d")):
+        out = out.replace(token, code)
+    return out
+
+
+def _date_value(value: str, fmt: str) -> str | None:
+    """`value` if it's a valid date in `fmt`, else None (so a phrase never goes into a date field)."""
+    try:
+        datetime.strptime(value.strip(), fmt)
+        return value.strip()
+    except ValueError:
+        return None
 
 
 def question_kind(text: str, options: list[str], multi: bool) -> QuestionKind:
@@ -212,6 +248,11 @@ def profile_answer(profile: Profile, q: Question, job: Job,
     ql = q.text.lower()
     expected = profile.expected_ctc_lpa
 
+    if q.kind == QuestionKind.DATE and re.search(
+            r"start|join|available|availability|notice", ql):  # "when would you be able to start employment?"
+        start = (today or date.today()) + timedelta(days=profile.notice_period_days)
+        return Answer(start.strftime(q.date_format), "profile")
+
     if re.search(r"notice period|how soon can you join|joining time|when can you (join|start)", ql):
         if "serving" in ql:
             return ASK_USER  # the profile doesn't say; ask once, then it's in answers.yaml
@@ -244,7 +285,7 @@ def profile_answer(profile: Profile, q: Question, job: Job,
     if re.search(r"authori[sz]ed to work|eligible to work|right to work|work permit|legally allowed", ql):
         return _yes_no(_authorized(profile, _job_country(profile, ql, job)), q)
 
-    if re.search(r"experience|how many years|how long have you|\byoe\b", ql):
+    if re.search(r"experience|how many years|how long have you|\byoe\b|\bexp\b", ql):
         skill = find_skill(profile, ql)
         if skill:
             return _duration_answer(profile.skill_experience(skill, today), q) or ASK_USER
@@ -326,6 +367,8 @@ class Answerer:
         return Answer(value, "user")
 
     def _fit(self, value: str | list[str], q: Question) -> str | list[str] | None:
+        if q.kind == QuestionKind.DATE:
+            return _date_value(str(value), q.date_format)
         if q.kind == QuestionKind.CHOICE:
             return pick_option(str(value), q.options)
         if q.kind == QuestionKind.MULTI_CHOICE:
@@ -358,13 +401,16 @@ class Answerer:
         user = (
             f"{resume}{notes}PROFILE:\n{profile_summary(self.profile)}\n\n{previous}"
             f"JOB: {job.title} at {job.company}\n{job.description[:3000]}\n\n"
-            f"QUESTION ({q.kind.value}): {q.text}\n"
+            + (("EARLIER ANSWERS ON THIS APPLICATION:\n"
+                + "\n".join(f"- {k} → {v}" for k, v in list(q.context.items())[-12:]) + "\n\n") if q.context else "")
+            + f"QUESTION ({q.kind.value}): {q.text}\n"
             + (f"OPTIONS: {json.dumps(q.options)}\n" if q.options else "")
+            + (f"DATE FORMAT: {q.date_format} (today is {date.today():%Y-%m-%d})\n" if q.date_format else "")
         )
         try:
             data = await self.llm.complete_json(system, user)
         except ValueError as e:  # replied in plain text: offer it as a suggestion, never auto-accept it
-            plain = str(e).split("reply: ", 1)[-1].strip("'\" ")
+            plain = plain_answer(str(e).split("reply: ", 1)[-1])
             value = self._fit(plain, q) if plain and len(plain) < 200 else None
             return (Answer(value, "llm"), 0.0, False) if value else (None, 0.0, False)
         except Exception as e:  # a flaky LLM shouldn't kill the run; the user gets asked instead

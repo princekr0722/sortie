@@ -40,6 +40,7 @@ class QuestionKind(StrEnum):
     DECIMAL = "decimal"
     CHOICE = "choice"  # pick one of options
     MULTI_CHOICE = "multi_choice"  # pick any of options
+    DATE = "date"  # typed in date_format (strftime), e.g. "%d/%m/%Y"
 
 
 @dataclass
@@ -47,12 +48,14 @@ class Question:
     text: str
     kind: QuestionKind = QuestionKind.TEXT
     options: list[str] = field(default_factory=list)
+    date_format: str = ""  # for DATE questions: strftime format the field expects
+    context: dict[str, str] = field(default_factory=dict)  # earlier answers on the same application form
 
 
 @dataclass
 class Answer:
     value: str | list[str]
-    source: str  # profile | cache | llm | user
+    source: str  # profile | cache | llm | user | rule (e.g. a required "Agree" box ticked)
     duration: Duration | None = None  # set for experience answers, for years + months dropdowns
 
 

@@ -22,12 +22,14 @@ ConfirmSubmit = Callable[[Job, dict], Awaitable[bool]]
 
 BLOCK_PATTERNS = re.compile(
     r"captcha|unusual (activity|traffic)|verify you are (a )?human|are you a robot|access denied|too many requests"
-    r"|performing security verification|not a bot",
+    r"|performing security verification|not a bot|additional verification required",
     re.IGNORECASE,
 )
 
 
 CHALLENGE_TITLE = re.compile(r"just a moment|attention required", re.IGNORECASE)
+# footers like "This site is protected by reCAPTCHA" on normal pages (Indeed Apply) are not a challenge
+CAPTCHA_FOOTER = re.compile(r"protected by recaptcha", re.IGNORECASE)
 
 
 class BlockedError(Exception):
@@ -45,6 +47,7 @@ class SiteAdapter(ABC):
 
     def __init__(self, page: Page):
         self.page = page
+        self.attended = False  # someone is at the screen (review mode): CAPTCHAs can be handed to them
 
     @abstractmethod
     async def ensure_logged_in(self) -> bool: ...
@@ -67,7 +70,7 @@ class SiteAdapter(ABC):
     async def check_blocked(self) -> None:
         await self._wait_out_challenge()
         title = await self.page.title()
-        body = await self.page.locator("body").inner_text(timeout=5000)
+        body = CAPTCHA_FOOTER.sub("", await self.page.locator("body").inner_text(timeout=5000))
         if BLOCK_PATTERNS.search(title) or BLOCK_PATTERNS.search(body[:3000]):
             await self.screenshot("blocked")
             raise BlockedError(f"{self.name}: blocked ({title!r})")
@@ -89,5 +92,6 @@ class SiteAdapter(ABC):
     async def debug_dump(self, tag: str) -> str:
         """Save page HTML + screenshot so unknown page states can be mapped into the adapter's selectors."""
         DEBUG_DIR.mkdir(parents=True, exist_ok=True)
-        (DEBUG_DIR / f"{self.name}-{tag}-{datetime.now():%Y%m%d-%H%M%S}.html").write_text(await self.page.content())
+        (DEBUG_DIR / f"{self.name}-{tag}-{datetime.now():%Y%m%d-%H%M%S}.html").write_text(
+            f"<!-- url: {self.page.url} -->\n" + await self.page.content())
         return await self.screenshot(tag)
