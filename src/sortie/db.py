@@ -62,6 +62,17 @@ class Database:
             return False
         return row["failed"] < row["total"] or row["failed"] >= MAX_ATTEMPTS
 
+    def reset_failures(self, site: str) -> int:
+        """Forget the failed attempts of jobs that never got any other outcome, so the next run retries them
+        (e.g. after a site fix). Returns how many jobs were reset."""
+        jobs = [r["job_id"] for r in self.conn.execute(
+            """SELECT a.job_id FROM applications a JOIN jobs j ON j.id = a.job_id WHERE j.site = ?
+               GROUP BY a.job_id HAVING SUM(a.status != ?) = 0""", (site, Status.FAILED.value))]
+        self.conn.executemany("DELETE FROM applications WHERE job_id = ? AND status = ?",
+                              [(job_id, Status.FAILED.value) for job_id in jobs])
+        self.conn.commit()
+        return len(jobs)
+
     def upsert_job(self, job: Job) -> int:
         self.conn.execute(
             """INSERT INTO jobs (site, site_job_id, url, title, company, location, experience, salary, jd, first_seen_at)

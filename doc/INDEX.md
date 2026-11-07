@@ -19,6 +19,7 @@
 | Naukri adapter | [features/site-naukri.md](features/site-naukri.md) | 1 | In progress |
 | Instahyre adapter | [features/site-instahyre.md](features/site-instahyre.md) | 1 | Done (inbox in progress) |
 | CutShort adapter | [features/site-cutshort.md](features/site-cutshort.md) | 1 | Planned |
+| Indeed adapter (+ generic form filler) | [features/site-indeed.md](features/site-indeed.md) | 2 | In progress |
 
 ## Conventions
 - New feature → new doc in `features/`, a row here, and tasks in [TRACKER.md](TRACKER.md).

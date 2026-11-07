@@ -58,6 +58,7 @@ class Runner:
         async with Browser(self.headless) as browser:
             for name in sites:
                 adapter = ADAPTERS[name](await browser.new_page())
+                adapter.attended = self.mode == Mode.REVIEW
                 self.summary[name] = Counter()
                 try:
                     await self.run_site(adapter)
@@ -97,11 +98,11 @@ class Runner:
                 self.record(job, ApplyResult(Status.SKIPPED, reason))
                 continue
 
+            if job.external:  # known from search: no need to screen, open or score it
+                self.record(job, ApplyResult(Status.EXTERNAL, "applies on company site"))
+                continue
             if reason := await self.title_screen(job):
                 self.record(job, ApplyResult(Status.SKIPPED, reason))
-                continue
-            if job.external:  # known from search: no need to open or score it
-                self.record(job, ApplyResult(Status.EXTERNAL, "applies on company site"))
                 continue
 
             await human_pause()

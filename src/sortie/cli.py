@@ -50,6 +50,9 @@ def build_parser() -> argparse.ArgumentParser:
     login = sub.add_parser("login", help="open a site to log in manually once")
     login.add_argument("site", choices=sorted(ADAPTERS) or None)
 
+    retry = sub.add_parser("retry", help="give a site's failed jobs fresh attempts (after a fix)")
+    retry.add_argument("site", choices=sorted(ADAPTERS) or None)
+
     report = sub.add_parser("report", help="application counts")
     report.add_argument("--date", type=date.fromisoformat, default=None, help="YYYY-MM-DD, default: today")
     return parser
@@ -123,6 +126,12 @@ def main() -> None:
         asyncio.run(_run(args))
     elif args.command == "login":
         asyncio.run(_login(args))
+    elif args.command == "retry":
+        db = Database()
+        try:
+            print(f"  {db.reset_failures(args.site)} failed {args.site} jobs will be retried on the next run")
+        finally:
+            db.close()
     else:
         _report(args)
 

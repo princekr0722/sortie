@@ -22,3 +22,19 @@ def test_failed_jobs_are_retried_once(tmp_path):
     db.record(j, Status.FAILED, "stuck again")
     assert db.is_seen("naukri", "7")
     db.close()
+
+
+def test_reset_failures(tmp_path):
+    from sortie.db import Database
+    from sortie.models import Job, Status
+    db = Database(tmp_path / "t.db")
+    jobs = [Job("indeed", str(i), f"https://x/{i}", "Dev", "Acme") for i in range(3)]
+    for status in (Status.FAILED, Status.FAILED):
+        db.record(jobs[0], status)
+    db.record(jobs[1], Status.FAILED)
+    db.record(jobs[1], Status.APPLIED)
+    db.record(jobs[2], Status.SKIPPED)
+    assert db.is_seen("indeed", "0")
+    assert db.reset_failures("indeed") == 1
+    assert not db.is_seen("indeed", "0") and db.is_seen("indeed", "1") and db.is_seen("indeed", "2")
+    db.close()

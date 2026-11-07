@@ -1,4 +1,5 @@
 from sortie.sites.base import SiteAdapter
+from sortie.sites.indeed import IndeedAdapter
 from sortie.sites.instahyre import InstahyreAdapter
 from sortie.sites.naukri import NaukriAdapter
 
@@ -6,4 +7,5 @@ from sortie.sites.naukri import NaukriAdapter
 ADAPTERS: dict[str, type[SiteAdapter]] = {
     NaukriAdapter.name: NaukriAdapter,
     InstahyreAdapter.name: InstahyreAdapter,
+    IndeedAdapter.name: IndeedAdapter,
 }

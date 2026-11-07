@@ -15,3 +15,7 @@ Never apply twice, keep a log of every decision, and feed reports.
 - Daily cap check (count of `applied` today per site).
 - `external` rows form the phase 3 queue.
 - `sortie report` reads from here.
+
+## Retrying failures
+- A failed job is retried once (`MAX_ATTEMPTS = 2`), then skipped silently.
+- `sortie retry <site>` deletes the failed attempts of jobs that never had another outcome, so the next run tries them again. Use it after fixing a site adapter. Jobs that were applied to or skipped are untouched.
