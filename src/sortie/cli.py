@@ -17,11 +17,14 @@ from sortie.llm.client import LLMClient
 from sortie.log import log, setup_logging
 from sortie.models import Mode
 from sortie.runner import Runner
-from sortie.sites import ADAPTERS
+from sortie.sites import ADAPTERS, DISABLED
 
 
 def _sites(value: str) -> list[str]:
     names = [s.strip().lower() for s in value.split(",") if s.strip()]
+    for name in names:
+        if name in DISABLED:
+            raise argparse.ArgumentTypeError(f"{name} is disabled: {DISABLED[name][1]}")
     unknown = [n for n in names if n not in ADAPTERS]
     if unknown:
         available = ", ".join(ADAPTERS) or "none yet"

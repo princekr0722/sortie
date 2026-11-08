@@ -2,7 +2,7 @@
 
 Status: ⬜ todo · 🟨 in progress · ✅ done · ⛔ blocked
 
-_Last updated: 2026-11-07_
+_Last updated: 2026-11-09_
 
 ## Phase 1 — Core + Naukri, Instahyre, CutShort
 
@@ -33,10 +33,11 @@ _Last updated: 2026-11-07_
 | # | Task | Status |
 |---|---|---|
 | 2.1 | LinkedIn Easy Apply adapter | ⬜ |
-| 2.2 | Indeed adapter: search (embedded JSON, per-country sites), job page, external detection | 🟡 Built; search, job page and Apply link verified live (logged out), 2026-11-07 |
-| 2.2a | Generic form filler (`sites/forms.py`) for Indeed Apply steps; reusable for career sites | 🟡 Built, awaiting live run |
-| 2.2c | LLM step navigator: fallback for unfamiliar form steps (click / check consent / skip / wait), with code-enforced guardrails | 🟡 Built, awaiting live run |
-| 2.2b | First logged-in `--review --limit 1` Indeed run; map the smartapply steps from debug dumps | 🟡 Contact, resume and review steps reached; employer questions, consent and review steps handled; Submit hits a reCAPTCHA that needs you (review mode waits for you, auto stops Indeed). Next: LLM fallback for unknown steps (proposed) |
+| 2.2 | Indeed adapter: search (embedded JSON, per-country sites), job page, external detection | ⏸ **Disabled** 2026-11-09 (built, merged; see 2.2d) |
+| 2.2a | Generic form filler (`sites/forms.py`): text, number, date, select, radio, checkbox, consent; choices verified to stick | ✅ Built, merged (used by Indeed; reusable for phase 3) |
+| 2.2b | Live Indeed runs: map the smartapply steps (contact, resume, questions, consent, review, intervention) | ✅ Done 2026-11-07, about 10 applications sent |
+| 2.2c | LLM step navigator: fallback for unfamiliar form steps (click / check consent / skip / wait), with code-enforced guardrails | ✅ Built, merged; used live |
+| 2.2d | **Re-enable Indeed.** Blockers: (1) Yes/No radio clicks look selected but Indeed's React form doesn't register them ("Choose an option to continue"); needs a live check of which click method registers. (2) A reCAPTCHA before almost every Submit after a day of runs; needs a lower cap (about 10/day), `careful` pace and a Google sign-in in the bot browser. To re-enable: move `IndeedAdapter` from `DISABLED` back into `ADAPTERS` in `sites/__init__.py` | ⬜ Blocked |
 
 ## Phase 3 — Company career pages
 | # | Task | Status |

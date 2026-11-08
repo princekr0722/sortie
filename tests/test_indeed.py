@@ -91,3 +91,8 @@ def test_date_field_becomes_date_question():
                           placeholder="DD/MM/YYYY"))
     assert q.kind == QuestionKind.DATE and q.date_format == "%d/%m/%Y"
     assert to_question(Field("f10", "date", "Available from")).date_format == "%Y-%m-%d"
+
+
+def test_indeed_is_disabled():
+    from sortie.sites import ADAPTERS, DISABLED
+    assert "indeed" not in ADAPTERS and "indeed" in DISABLED

@@ -4,7 +4,7 @@
 roles:
   - Python Backend Developer
   - Software Engineer Python Django
-locations: [Chennai, Gurugram, Noida]   # cities; a country (e.g. UAE) is searched on Indeed only
+locations: [Chennai, Gurugram, Noida]   # cities (Naukri searches Indian cities only)
 include_remote: true
 experience_range: [2, 5]                   # years; jobs whose range doesn't overlap are skipped
 min_fit_score: 65                          # 0-100, needs an LLM in config/.env

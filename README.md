@@ -1,6 +1,6 @@
 # Sortie
 
-Sortie searches job portals for roles that fit you, scores each job against your resume, and applies, answering the screening questions from your own profile. It works with Naukri and Instahyre; Indeed is in testing. CutShort, LinkedIn and company career sites are planned.
+Sortie searches job portals for roles that fit you, scores each job against your resume, and applies, answering the screening questions from your own profile. It works with Naukri and Instahyre. Indeed is built but disabled for now (see [doc/TRACKER.md](doc/TRACKER.md)). CutShort, LinkedIn and company career sites are planned.
 
 It applies selectively: every job goes through your filters and an optional LLM fit score. Each question is answered from your profile, then from your saved answers, then by the LLM, and you're asked only when none of those can answer. Salary, visa and legal questions are never made up.
 
@@ -39,7 +39,7 @@ Then:
    Keep `LLM_THINKING=false`: with reasoning on, each answer takes 15–60 s instead of 1–5 s. Free-tier limits and the model list change over time; if a model stops replying, pick another from the catalog.
 5. Log in once in Sortie's browser:
    ```bash
-   .venv/bin/sortie login naukri      # and instahyre / indeed
+   .venv/bin/sortie login naukri      # and instahyre
    ```
 
 ## Use
@@ -48,10 +48,10 @@ Then:
 .venv/bin/sortie run --sites naukri --auto               # applies on its own, within daily caps
 .venv/bin/sortie run --sites naukri --dry-run            # never submits, records nothing
 .venv/bin/sortie report                                  # today's counts
-.venv/bin/sortie retry indeed                            # failed jobs get fresh attempts (after a fix)
+.venv/bin/sortie retry naukri                            # failed jobs get fresh attempts (after a fix)
 ```
-Several sites run one after another: `--sites naukri,instahyre,indeed` (default: all).
-Add `--headless` to run without a visible window (Naukri, Instahyre and Indeed block headless browsers, so keep them visible).
+Several sites run one after another: `--sites naukri,instahyre` (default: all enabled sites).
+Add `--headless` to run without a visible window (Naukri and Instahyre block headless browsers, so keep them visible).
 Add `--pace fast` for shorter pauses between pages (`careful` / `normal` / `fast`; default in `search.yaml`).
 
 - Answers you type are saved to `config/answers.yaml`. They're reused for the same question and, via the LLM, for reworded ones. You can edit the file.

@@ -1,6 +1,12 @@
 # Feature: Indeed Adapter
 
-**Status:** In progress (search + job page mapped live, logged out; the Indeed Apply form is built generically and awaits the first logged-in `--review --limit 1` run) · **Phase:** 2 · **Code:** `src/sortie/sites/indeed.py`, `src/sortie/sites/forms.py`
+**Status:** ⏸ Disabled since 2026-11-09. Built and merged, but switched off in `sites/__init__.py` (`DISABLED`): `sortie run --sites indeed` refuses and gives the reason. Blockers and how to re-enable: [TRACKER 2.2d](../TRACKER.md) · **Phase:** 2 · **Code:** `src/sortie/sites/indeed.py`, `src/sortie/sites/forms.py`
+
+## Why it's disabled (2026-11-09)
+1. **Choice answers don't register.** On some employers' question steps, Sortie's clicks on Yes/No radios show as selected and pass every DOM check, but Indeed's React form never records them, and Continue fails with "Choose an option to continue". Next step: on a live form, try each click method (label, input, keyboard, JS) and see which one Indeed accepts.
+2. **CAPTCHA before almost every Submit** after a day of many runs and partial form attempts. Sortie won't solve CAPTCHAs; it waits for you. Before re-enabling: Indeed cap about 10/day, `careful` pace, a Google sign-in in the bot's browser, one run a day.
+
+The search, job page, form walking, consent, dates, the "requirements not met" step, CAPTCHA hand-off and the LLM step navigator all worked live (about 10 applications sent on 2026-11-07).
 
 ## Login
 - `sortie login indeed` opens `secure.indeed.com/auth` in the bot's Chrome. Log in once (email + code, or Google), then press Enter.
