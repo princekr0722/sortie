@@ -41,7 +41,9 @@ SELECTORS = {
     # apply chatbot (verified 2026-11-05). Use exact classes: substring matches like
     # [class*='chatbot_Chip'] also hit the .chatbot_Chips container and read every option as one.
     "chat_drawer": ".chatbot_DrawerContentWrapper",
-    "chat_bot_msg": ".chatbot_ListItem .botMsg",
+    # the "..." typing bubble is also a .botMsg (li.loader); reading it as the question was the bug of 2026-11-08/09
+    "chat_bot_msg": ".chatbot_ListItem:not(.loader) .botMsg",
+    "chat_typing": ".chatbot_ListItem.loader:visible",
     "chat_radio": ".ssrc__radio-btn-container",
     "chat_checkbox": ".multicheckboxes-container .mcc__label",
     "chat_chip": ".chatbot_Chip",
@@ -60,6 +62,9 @@ NO_EFFECT = "Apply did nothing (no questions, no confirmation)"
 POLL_MS = 500
 POLL_STEPS = 100
 QUESTION_SETTLE_MS = 700
+WALK_IN_BUTTON = re.compile(r"^\s*I am interested\s*$", re.M)
+# the chatbot's own failure message; answering it like a question goes nowhere
+CHAT_ERROR = re.compile(r"something went wrong", re.I)
 SUCCESS_TEXT = re.compile(r"successfully applied|application (has been )?(submitted|sent)|you have applied", re.I)
 OPTION_NOISE = {"load more", "show more", "skip", "skip this question"}
 # Save every chatbot question's HTML to data/debug/ until the chatbot selectors are confirmed live
@@ -179,6 +184,8 @@ class NaukriAdapter(SiteAdapter):
             return ApplyResult(Status.EXTERNAL, "applies on company site")
         button = self.page.locator(SELECTORS["apply_button"])
         if not await button.count():
+            if walk_in := await self._walk_in():
+                return ApplyResult(Status.SKIPPED, walk_in)
             return ApplyResult(Status.FAILED, "no apply button", screenshot_path=await self.debug_dump("no-apply"))
         label = (await button.first.inner_text()).strip().lower()
         if "applied" in label:
@@ -203,6 +210,15 @@ class NaukriAdapter(SiteAdapter):
                                    + (f" (\"{notice}\")" if notice else "")
                                    + "; likely Naukri's daily or per-company apply limit", result)
         return result
+
+    async def _walk_in(self) -> str | None:
+        """Walk-in drives have "I am interested" instead of Apply and a "Time and Venue" block (verified 2026-11-09).
+        They mean showing up in person, so Sortie leaves them to you and puts the details in the reason."""
+        body = await self.page.locator("body").inner_text()
+        if not (WALK_IN_BUTTON.search(body) and ("Time and Venue" in body or "walk-in" in body.lower())):
+            return None
+        venue = body.split("Time and Venue", 1)[1].strip().split("\n")[:2] if "Time and Venue" in body else []
+        return "walk-in drive, in person" + (f": {' · '.join(v.strip() for v in venue)}" if venue else "")
 
     async def _read_notice(self) -> str:
         """Text of a notice that flashes up right after clicking Apply, if any (gone within seconds).
@@ -236,14 +252,20 @@ class NaukriAdapter(SiteAdapter):
                 if not await drawer.count() or not await drawer.first.is_visible():
                     continue
                 chat_seen = True
-                messages = await self.page.locator(SELECTORS["chat_bot_msg"]).all_inner_texts()
+                if await self.page.locator(SELECTORS["chat_typing"]).count():
+                    continue  # the bot is still typing: the question and its options aren't there yet
+                messages = [m.strip() for m in await self.page.locator(SELECTORS["chat_bot_msg"]).all_inner_texts()]
             except PlaywrightError:  # page is navigating (usually to the apply confirmation); look again
                 continue
-            if len(messages) <= seen_questions:
+            if len(messages) <= seen_questions or not messages[-1]:
                 continue
+            if CHAT_ERROR.search(messages[-1]):
+                path = await self.debug_dump("chat-error")
+                await self._close_chat()
+                return ApplyResult(Status.FAILED, f"Naukri chatbot said: {messages[-1][:120]}", answers, path)
             seen_questions = len(messages)
             await self.page.wait_for_timeout(QUESTION_SETTLE_MS)  # let the new question's options render
-            q = await self._read_question(messages[-1].strip())
+            q = await self._read_question(messages[-1])
             answer = await answerer.answer(q, job)
             if answer is None:
                 path = await self.debug_dump("unanswered")

@@ -56,3 +56,10 @@ async def test_parses_saved_search_page():
     assert first.company == "Wisdomleaf Technologies"
     assert first.experience == "3-8 Yrs" and first.locations == ["Bengaluru"]
     assert first.url.startswith("https://www.naukri.com/job-listings-")
+
+
+def test_chatbot_error_and_walk_in_patterns():
+    from sortie.sites.naukri import CHAT_ERROR, SELECTORS, WALK_IN_BUTTON
+    assert CHAT_ERROR.search("Something went wrong. Please Try again later")
+    assert WALK_IN_BUTTON.search("Save\nI am interested\n") and not WALK_IN_BUTTON.search("Apply")
+    assert ":not(.loader)" in SELECTORS["chat_bot_msg"]  # the typing bubble is not a question
