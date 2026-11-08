@@ -27,7 +27,7 @@ Feature details live in [features/](features/); progress lives in [TRACKER.md](T
 | Instahyre | Mostly one-click "Interested"/"Apply" on matched opportunities | Easy | 1 |
 | CutShort | One-click apply from profile, optional screening questions / cover note | Easy | 1 |
 | LinkedIn | Easy Apply multi-step modal; aggressive bot detection (ban risk) | Medium | 2 |
-| Indeed | "Easily apply" multi-step; Cloudflare heavy | Medium–hard | 2 |
+| Indeed | Search from the results page's embedded JSON (one site per country); "Easily apply" multi-step form via a generic form filler; Cloudflare | Medium–hard | 2 |
 | Company career pages | Greenhouse / Lever / Ashby (predictable) + Workday / custom (AI browser agent) | Hard | 3 |
 
 ## 3. Architecture

@@ -43,8 +43,9 @@ Sortie finds jobs on Indian job portals, scores them against the user's resume, 
 - Keep all selectors in the module's `SELECTORS` dict. Verify them against the live site and note "verified <date>". Use exact classes: substring selectors like `[class*='chatbot_Chip']` also match containers.
 - Call `confirm(job, answers)` right before the irreversible click. On unknown page states, call `debug_dump()` (saves HTML and a screenshot to `data/debug/`) and fix from the dump.
 - Naukri pre-fills chatbot text boxes from the user's Naukri profile, so clear them before answering.
-- Naukri (Akamai "Access Denied") and Instahyre (Cloudflare "Just a moment…") block headless Chrome: run them visible, and don't rapid-fire page visits to verify things.
-- Prefer a site's own JSON API for search when one exists (Instahyre: `/api/v1/job_search`); it's sturdier than page scraping.
+- Naukri (Akamai "Access Denied"), Instahyre and Indeed (Cloudflare "Just a moment…") block headless Chrome: run them visible, and don't rapid-fire page visits to verify things.
+- Use a site's own "easy apply" search filter when it has one (Indeed `iafilter=1`; LinkedIn's Easy Apply filter when that adapter is built). Company-site applying isn't supported yet, so external jobs are only noise. Keep the per-job external check as a fallback.
+- Prefer a site's own JSON API for search when one exists (Instahyre: `/api/v1/job_search`; Indeed: the job-card JSON embedded in the results page); it's sturdier than page scraping.
 - Explore public pages in a separate temporary browser profile. Never test the apply step on a real job without the user: clicking Apply submits an application.
 
 ## LLM

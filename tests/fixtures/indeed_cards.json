@@ -1,0 +1,11 @@
+[
+  {"jobkey": "a1b2c3d4e5f60001", "displayTitle": "Backend Developer - Java Spring Boot", "company": "Globex",
+   "formattedLocation": "Chennai, Tamil Nadu", "remoteLocation": false, "indeedApplyable": true,
+   "appliedOrGreater": false, "salarySnippet": {"currency": "", "salaryTextFormatted": false},
+   "snippet": "<ul><li>Build <b>backend</b> services &amp; APIs.</li><li>Design microservices.</li></ul>"},
+  {"jobkey": "a1b2c3d4e5f60002", "displayTitle": "Java Developer", "company": "Acme",
+   "formattedLocation": "Kolkata, West Bengal", "remoteLocation": true, "indeedApplyable": false,
+   "appliedOrGreater": false, "salarySnippet": {"text": "₹12,00,000 - ₹18,00,000 a year"}, "snippet": ""},
+  {"jobkey": "a1b2c3d4e5f60003", "displayTitle": "Software Engineer", "company": "Initrode",
+   "formattedLocation": "Jaipur, Rajasthan", "indeedApplyable": true, "appliedOrGreater": true, "snippet": ""}
+]
