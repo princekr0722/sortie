@@ -302,6 +302,10 @@ def profile_answer(profile: Profile, q: Question, job: Job,
         return ASK_USER  # offers in hand / their CTC: only you know
 
     if re.search(r"\b(ctc|salary|compensation|package)\b", ql):
+        if re.search(r"current|present", ql) and re.search(r"expect", ql) and q.kind == QuestionKind.TEXT:
+            # "What is your current annual CTC and expected CTC?": both in one answer
+            return Answer(f"Current CTC: {_fmt(profile.current_ctc_lpa)} LPA; expected: "
+                          f"{_fmt(expected.min)}-{_fmt(expected.max)} LPA", "profile")
         if re.search(r"expect", ql):
             if q.kind in (QuestionKind.NUMBER, QuestionKind.DECIMAL, QuestionKind.CHOICE):
                 return _money(expected.single_value, "", q, ql) or ASK_USER

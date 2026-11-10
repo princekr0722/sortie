@@ -63,7 +63,7 @@ A moment after you apply, the recruiter's side (often "Voila on <recruiter>'s be
   - "This job offers around ₹AL – ₹BL / yr. Does this work for you?": Yes if B ≥ your minimum expected CTC.
   - "What is your official notice period?": your notice (or what's left of it when serving).
 - **Filling (page):**
-  - Open the thread. The questionnaire is a `<form>` with one `fieldset` per question, titled by its `legend`. Options are clickable `div[tabindex=0]` blocks holding the option text. Sortie clicks the block whose text equals the answer, inside that question's fieldset.
+  - Open the thread. The questionnaire is a `<form>` with one list item per question. Choice questions are a `fieldset` titled by its `legend`, with options as clickable `div[tabindex=0]` blocks holding the option text; Sortie clicks the block whose text equals the answer. Text questions are a `label` with a `textarea` (placeholder "Text"), which Sortie fills. Each question is found by its list item and title.
   - `confirm()`, then the form's own `button[type=submit]`. CutShort then asks, inside the form, "Responses cannot be changed after submission. Are you sure?" **[Yes] [No]**, where Yes is the new submit button. Sortie presses Yes, since the answers were just confirmed.
   - Success = `screeningSubmitted` true in the thread JSON.
 - **Can't complete:** a mandatory question of an unsupported type (audio, video, file, anything unknown), or a mandatory question nobody can answer → not sent, and it goes on the needs-you list with a link to the thread. Optional unsupported questions are left blank.
@@ -108,3 +108,7 @@ Anything Sortie deliberately leaves for you should be easy to find, not buried i
 | First real questionnaire runs: "may not have been sent". After Submit, the form turns into "Responses cannot be changed after submission. Are you sure? [Yes] [No]", which Sortie didn't press, so nothing was sent and the questionnaires stayed open | After Submit, press the form's **Yes** if it appears, then confirm via `screeningSubmitted` |
 | 4 of 8 questionnaires answered "No" to the salary question: those jobs top out at ₹13–15L, below the 16 LPA minimum. They shouldn't have been applied to, but the salary pre-filter only read Naukri's "Lacs" format | `filters.skip_reason` also reads lakh amounts like "₹10L - ₹14L / yr" (CutShort), so such jobs are skipped before applying |
 
+| Questionnaire with a free-text question: "Locator.fill: Timeout". Text questions are `<li><label>title</label>…<textarea placeholder="Text">`, not a fieldset with a legend | Each question is found by its list item (`li` containing a `legend` or `label` with the title) |
+| "What is your current annual CTC and expected CTC? (fixed + variable + ESOPs)" would have got only the expected CTC | Profile rule: a text question asking for both → "Current CTC: X LPA; expected: A-B LPA" |
+| 4 questionnaires "failed" because CutShort's server was down: thread pages were Cloudflare's "Gateway time-out" (504) | A 5xx thread page stops the questionnaire step for that run with one clear message; they stay open for the next run |
+| The text question "current annual CTC and expected CTC?" was sent as "18": the kind was guessed from the wording (CTC → decimal), so the both-values rule (text only) was skipped | CutShort `responseType: text` is always a TEXT question |

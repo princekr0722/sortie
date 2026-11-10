@@ -45,6 +45,8 @@ class ScreeningQuestion:
             return Question(self.title, QuestionKind.MULTI_CHOICE if multi else QuestionKind.CHOICE, self.options)
         if self.response_type == "number":
             return Question(self.title, QuestionKind.NUMBER)
+        if self.response_type == "text":  # a free-text box: never guess a number type from the wording ("CTC")
+            return Question(self.title, QuestionKind.TEXT)
         return Question(self.title, question_kind(self.title, [], multi=False))
 
 
@@ -89,6 +91,10 @@ def submitted(thread: dict) -> bool:
     return bool(messages) and all(m.get("screeningSubmitted") for m in messages)
 
 
+class ServerDown(Exception):
+    """CutShort answered with a 5xx page (e.g. Cloudflare's 504 "Gateway time-out")."""
+
+
 class CutshortInbox:
     def __init__(self, page: Page, needs_you: list[NeedsYou]):
         self.page = page
@@ -130,6 +136,10 @@ class CutshortInbox:
         for questionnaire in self.questionnaires:
             try:
                 await self._answer(questionnaire, answerer, confirm, debug_dump)
+            except ServerDown as e:
+                log.warning(f"  CutShort is having server trouble ({e}); the remaining questionnaires stay open "
+                            f"for the next run")
+                return
             except PlaywrightError as e:
                 log.warning(f"  questionnaire for {questionnaire.job.title} failed: {str(e).splitlines()[0][:120]}")
                 await debug_dump("questionnaire-error")
@@ -159,12 +169,17 @@ class CutshortInbox:
                 continue
             answers[sq.title] = answer
 
-        await self.page.goto(thread_url(qn.conversation_id), wait_until="domcontentloaded")
+        response = await self.page.goto(thread_url(qn.conversation_id), wait_until="domcontentloaded")
+        if response and response.status >= 500:
+            raise ServerDown(f"HTTP {response.status}")
+        # a question is one list item: choices are a fieldset titled by its legend, text questions a label with a
+        # textarea under it (verified 2026-11-10)
+        title_el = "legend, label"
         first = next(sq.title for sq in qn.questions)
-        form = self.page.locator("form").filter(has=self.page.locator("legend", has_text=first[:60]))
+        form = self.page.locator("form").filter(has=self.page.locator(title_el, has_text=first[:60]))
         await form.first.wait_for(timeout=20000)
         for title, answer in answers.items():
-            block = form.first.locator("fieldset").filter(has=self.page.locator("legend", has_text=title[:60])).first
+            block = form.first.locator("li").filter(has=self.page.locator(title_el, has_text=title[:60])).first
             values = answer.value if isinstance(answer.value, list) else [answer.value]
             if next(sq for sq in qn.questions if sq.title == title).options:
                 for value in values:  # options are clickable blocks (div[tabindex=0]) holding the option text

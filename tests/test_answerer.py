@@ -348,3 +348,9 @@ def test_cutshort_standard_questions(profile):
     notice = ["Served notice, available immediately", "15 days", "30 days", "45 days", "60 days", "Above 60 days"]
     assert ans(profile, "What is your official notice period (as per your offer letter)?", K.CHOICE, notice) == \
         f"{profile.notice_period_days} days"
+
+
+def test_current_and_expected_ctc_in_one_question(profile):
+    got = ans(profile, "What is your current annual CTC and expected CTC? (please mention: fixed CTC + variable CTC + ESOPs, if any)")
+    assert got == (f"Current CTC: {profile.current_ctc_lpa:g} LPA; expected: "
+                   f"{profile.expected_ctc_lpa.min:g}-{profile.expected_ctc_lpa.max:g} LPA")

@@ -38,3 +38,9 @@ def test_conversation_job_and_age():
     assert (job.title, job.company, job.salary) == ("Java Developer", "Acme", "₹7L - ₹15L / yr")
     assert is_recent(c, now=datetime(2026, 11, 20, tzinfo=timezone.utc))
     assert not is_recent(c, now=datetime(2026, 12, 20, tzinfo=timezone.utc))
+
+
+def test_text_questions_stay_text():
+    from sortie.sites.cutshort_inbox import ScreeningQuestion
+    q = ScreeningQuestion("What is your current annual CTC and expected CTC?", "text").to_question()
+    assert q.kind == QuestionKind.TEXT
