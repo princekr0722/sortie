@@ -11,7 +11,7 @@ from playwright.async_api import Page
 
 from sortie.config import PROJECT_ROOT, Profile, SearchConfig
 from sortie.llm.answerer import Answerer
-from sortie.models import ApplyResult, Job
+from sortie.models import ApplyResult, Job, NeedsYou
 
 SCREENSHOT_DIR = PROJECT_ROOT / "data" / "screenshots"
 DEBUG_DIR = PROJECT_ROOT / "data" / "debug"
@@ -48,6 +48,7 @@ class SiteAdapter(ABC):
     def __init__(self, page: Page):
         self.page = page
         self.attended = False  # someone is at the screen (review mode): CAPTCHAs can be handed to them
+        self.needs_you: list[NeedsYou] = []  # left for you outside a job's own result (e.g. inbox messages)
 
     @abstractmethod
     async def ensure_logged_in(self) -> bool: ...

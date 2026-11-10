@@ -84,7 +84,7 @@ class InstahyreAdapter(SiteAdapter):
     def __init__(self, page):
         super().__init__(page)
         self.external: dict[str, str] = {}  # job id -> company-site apply URL ("sourced" jobs)
-        self.inbox = InstahyreInbox(page)
+        self.inbox = InstahyreInbox(page, self.needs_you)
 
     async def before_jobs(self) -> None:
         await self.inbox.scan()

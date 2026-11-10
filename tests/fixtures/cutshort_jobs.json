@@ -1,0 +1,11 @@
+[
+  {"id": "a1b2c3d4e5f6a1b2c3d4e5f6", "headline": "Backend Engineer", "company": "Globex",
+   "locations": "Bengaluru (Bangalore)", "remote": "remote_not_okay", "exp": {"min": 2, "max": 4},
+   "salary": "₹10L - ₹14L / yr", "skills": ["Java", "Kafka"],
+   "description": "<p><strong>Our Story</strong></p><p>We build backend systems &amp; APIs.</p><ul><li>Own services</li></ul>",
+   "publicUrl": "https://cutshort.io/job/Backend-Engineer-Bengaluru-Globex-abc123",
+   "applyUrl": "https://cutshort.io/profile/view/j/a1b2c3d4e5f6a1b2c3d4e5f6"},
+  {"id": "f6e5d4c3b2a1f6e5d4c3b2a1", "headline": "Java Developer", "company": "Initrode",
+   "locations": "Jaipur, Kolkata", "remote": "remote_okay", "exp": {"min": 3, "max": 6}, "salary": "", "skills": [],
+   "description": "<p>Java role</p>", "applyUrl": ""}
+]

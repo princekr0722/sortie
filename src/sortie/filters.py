@@ -84,7 +84,9 @@ def skip_reason(job: Job, search: SearchConfig, profile: Profile) -> str | None:
     if not _location_ok(job, search):
         return f"location {', '.join(job.locations)} not wanted"
 
-    salary = parse_range(job.salary) if job.salary and "lac" in job.salary.lower() else None
+    # in lakhs: Naukri "12-18 Lacs PA", CutShort "₹10L - ₹14L / yr" (not Indeed's "₹12,00,000 a year")
+    in_lakhs = job.salary and re.search(r"lac|lakh|lpa|\d\s*l\b", job.salary, re.I)
+    salary = parse_range(job.salary) if in_lakhs else None
     if salary and salary[1] < profile.expected_ctc_lpa.min:
         return f"salary {job.salary} below expected {profile.expected_ctc_lpa.min} LPA"
 

@@ -38,3 +38,17 @@ def test_reset_failures(tmp_path):
     assert db.reset_failures("indeed") == 1
     assert not db.is_seen("indeed", "0") and db.is_seen("indeed", "1") and db.is_seen("indeed", "2")
     db.close()
+
+
+def test_needs_you_list(tmp_path):
+    from sortie.db import Database
+    from sortie.models import NeedsYou
+    db = Database(tmp_path / "t.db")
+    item = NeedsYou("cutshort", "voice recording", "Backend Engineer", "Acme", "https://cutshort.io/profile/view/j/1")
+    db.add_needs_you(item)
+    db.add_needs_you(item)  # the same thing twice is listed once
+    db.add_needs_you(NeedsYou("instahyre", 'reply to Recruiter: "are you available Monday?"'))
+    items = {i.what: i for i in db.needs_you()}
+    assert set(items) == {"voice recording", 'reply to Recruiter: "are you available Monday?"'}
+    assert items["voice recording"].company == "Acme" and items["voice recording"].url.endswith("/j/1")
+    db.close()

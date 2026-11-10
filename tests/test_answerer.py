@@ -323,3 +323,28 @@ def test_serving_notice_from_profile(profile):
     assert profile_answer(serving, start, JOB, TODAY).value == "16/12/2026"
     days = (d(2026, 12, 15) - TODAY).days + 1
     assert ans(serving, "Notice period in days", K.NUMBER) == str(days)
+
+
+async def test_compose_skips_profile_rules_and_answer_book(profile, tmp_path):
+    book = AnswerBook(tmp_path / "answers.yaml")
+    note = "I build Java microservices and would bring that to your team."
+    a = Answerer(profile, book, FakeLLM({"answer": note, "confidence": 0.9}), None)
+    q = Question("Write a message to the hiring team: why you fit, from your experience", K.TEXT)
+    assert (await a.compose(q, JOB)).value == note  # not "3 years ..." from the experience rule
+    assert not book.entries
+
+
+def test_cutshort_standard_questions(profile):
+    city = profile.current_location.split(",")[0]
+    loc = ["I am currently in this location and okay with it", "I am not in this location but can relocate",
+           "I am not okay with this location"]
+    assert ans(profile, f"The location of this job will be {city} (Somewhere). Are you okay with this?", K.CHOICE, loc) == loc[0]
+    far = ans(profile, "The location of this job will be Kochi. Are you okay with this?", K.CHOICE, loc)
+    assert far == (loc[1] if profile.willing_to_relocate else loc[2])
+    pay = ["Yes, this works", "No, this does not work"]
+    high, low = profile.expected_ctc_lpa.min + 5, profile.expected_ctc_lpa.min - 3
+    assert ans(profile, f"This job offers around ₹7L - ₹{high:g}L / yr. Does this work for you?", K.CHOICE, pay) == pay[0]
+    assert ans(profile, f"This job offers around ₹4L - ₹{low:g}L / yr. Does this work for you?", K.CHOICE, pay) == pay[1]
+    notice = ["Served notice, available immediately", "15 days", "30 days", "45 days", "60 days", "Above 60 days"]
+    assert ans(profile, "What is your official notice period (as per your offer letter)?", K.CHOICE, notice) == \
+        f"{profile.notice_period_days} days"

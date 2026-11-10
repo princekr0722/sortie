@@ -55,3 +55,16 @@ def test_location_aliases():
     assert "gurgaon" in location_aliases("Gurugram")
     assert "dubai" in location_aliases("UAE")
     assert location_aliases("Jaipur") == ["jaipur"]
+
+
+def test_salary_below_expectation_in_cutshort_format(profile, search):
+    from sortie.filters import skip_reason
+    from sortie.models import Job
+    low = profile.expected_ctc_lpa.min - 1
+    city = search.locations[0]
+    job = Job("cutshort", "1", "u", "Java Developer", "Acme", [city], "2-4 Yrs", f"₹7L - ₹{low:g}L / yr")
+    assert "below expected" in skip_reason(job, search, profile)
+    job.salary = f"₹7L - ₹{low + 5:g}L / yr"
+    assert skip_reason(job, search, profile) is None
+    job.salary = "₹12,00,000 - ₹18,00,000 a year"  # not in lakhs: not judged
+    assert skip_reason(job, search, profile) is None

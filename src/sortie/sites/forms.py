@@ -6,10 +6,18 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-from playwright.async_api import Frame, Page
+from playwright.async_api import Frame, Locator, Page
 
 from sortie.llm.answerer import Answerer, date_format, question_kind
 from sortie.models import Answer, Job, Question, QuestionKind
+
+# a whole page, a frame, or one element of it (e.g. an apply dialog, so fields behind it aren't read)
+Scope = Page | Frame | Locator
+
+
+def _root(scope: Scope) -> Locator:
+    return scope if isinstance(scope, Locator) else scope.locator("body")
+
 
 OPTIONAL = re.compile(r"\(optional\)|\boptional\b", re.I)
 REQUIRED_MARK = re.compile(r"\s*\*\s*(required)?\s*$|\s*\*", re.I)
@@ -48,7 +56,9 @@ FIELDS_JS = """root => {
     if (grouped.has(el) || !visible(el) || el.disabled || el.readOnly) continue;
     const tag = el.tagName.toLowerCase();
     const type = tag === 'input' ? (el.getAttribute('type') || '').toLowerCase() : tag;
-    if (tag === 'input' && !['text', 'number', 'email', 'tel', 'url', 'search', 'date', ''].includes(type)) continue;
+    if (tag === 'input' && !['text', 'number', 'email', 'tel', 'url', 'date', ''].includes(type)) continue;
+    // a site's own search box is never a question ("Search for jobs e.g Android jobs in Delhi")
+    if (el.getAttribute('role') === 'searchbox' || /^\\s*search\\b/i.test(el.getAttribute('placeholder') || '')) continue;
     const options = tag === 'select' ? [...el.options].filter(o => o.value !== '').map(o => clean(o.text)) : [];
     fields.push({key: key(el), kind: type || 'text', label: labelOf(el), options,
                  filled: el.value.trim() !== '', required: required(el), placeholder: el.getAttribute('placeholder') || ''});
@@ -92,16 +102,16 @@ def to_question(f: Field) -> Question:
     return Question(text, kind)
 
 
-async def read_fields(scope: Page | Frame) -> list[Field]:
-    raw = await scope.locator("body").evaluate(FIELDS_JS)
+async def read_fields(scope: Scope) -> list[Field]:
+    raw = await _root(scope).evaluate(FIELDS_JS)
     return [Field(**r) for r in raw if r["label"]]
 
 
-async def form_errors(scope: Page | Frame) -> list[str]:
-    return await scope.locator("body").evaluate(ERRORS_JS)
+async def form_errors(scope: Scope) -> list[str]:
+    return await _root(scope).evaluate(ERRORS_JS)
 
 
-async def fill_field(scope: Page | Frame, f: Field, value: str | list[str]) -> None:
+async def fill_field(scope: Scope, f: Field, value: str | list[str]) -> None:
     target = scope.locator(f"[data-sortie-key='{f.key}']").first
     if f.kind == "select":
         await target.select_option(label=value if isinstance(value, str) else value[0])
@@ -115,12 +125,12 @@ async def fill_field(scope: Page | Frame, f: Field, value: str | list[str]) -> N
 SETTLE_MS = 400  # a React form can undo a click it didn't register on its next render; check after it
 
 
-async def _pause(scope: Page | Frame, ms: int) -> None:
+async def _pause(scope: Scope, ms: int) -> None:
     page = scope if isinstance(scope, Page) else scope.page
     await page.wait_for_timeout(ms)
 
 
-async def _select_option(scope: Page | Frame, f: Field, item: str) -> None:
+async def _select_option(scope: Scope, f: Field, item: str) -> None:
     """Tick one radio/checkbox option and make sure it *stays* ticked: a React form ignores a click that doesn't
     reach its handlers and re-renders the option empty. Tries what a person would do, in turn."""
     if item not in f.options:
@@ -150,14 +160,14 @@ async def _select_option(scope: Page | Frame, f: Field, item: str) -> None:
     raise RuntimeError(f"couldn't select {item!r} for {f.label[:60]!r}")
 
 
-async def fill_step(scope: Page | Frame, answerer: Answerer, job: Job,
-                    answers: dict[str, Answer]) -> tuple[list[Field], Question | None]:
+async def fill_step(scope: Scope, answerer: Answerer, job: Job, answers: dict[str, Answer],
+                    fill_optional: frozenset[str] = frozenset()) -> tuple[list[Field], Question | None]:
     """Answer every empty, non-optional field on the current step. Returns the fields seen and the
     first question nobody could answer (None when all were filled)."""
     fields = await read_fields(scope)
     filled: dict[str, tuple[Field, str | list[str]]] = {}
     for f in fields:
-        if f.filled or f.optional:
+        if f.filled or (f.optional and f.kind not in fill_optional):  # e.g. CutShort's optional note to the recruiter
             continue
         q = to_question(f)
         q.context = {k: ", ".join(v.value) if isinstance(v.value, list) else str(v.value) for k, v in answers.items()}
@@ -206,7 +216,7 @@ STEP_JS = """root => {
 MAX_LLM_MOVES = 3
 # never let the LLM press these: Submit stays rule-based behind confirm(); the rest leave or undo the form
 FORBIDDEN_BUTTON = re.compile(
-    r"submit|save|close|exit|back|return|cancel|report|apply anyway|withdraw|delete|remove|upload|edit"
+    r"submit|save|close|exit|back|return|cancel|report|apply|withdraw|delete|remove|upload|edit"
     r"|sign ?out|log ?out", re.I)
 
 NAV_SYSTEM = """You help a job applicant's assistant move through a multi-step online application form.
@@ -266,12 +276,12 @@ def validate_move(reply: dict, snapshot: dict, fields: list[Field]) -> StepMove 
     return None
 
 
-async def llm_step_move(llm, scope: Page | Frame, job: Job, errors: list[str], avoid: str = "") -> StepMove | None:
+async def llm_step_move(llm, scope: Scope, job: Job, errors: list[str], avoid: str = "") -> StepMove | None:
     """One LLM-chosen move on the step. `avoid` is a button label that was already pressed without effect."""
     if not llm.enabled:
         return None
     fields = await read_fields(scope)
-    snapshot = await scope.locator("body").evaluate(STEP_JS)
+    snapshot = await _root(scope).evaluate(STEP_JS)
     snapshot["errors"] = errors
     if avoid:  # pressing it again can't help; don't offer it
         snapshot["buttons"] = [b for b in snapshot["buttons"] if b["text"] != avoid]
@@ -286,3 +296,36 @@ async def llm_step_move(llm, scope: Page | Frame, job: Job, errors: list[str], a
     elif move and move.action == "click":
         await scope.locator(f"[data-sortie-btn='{move.target}']").first.click(timeout=10000)
     return move
+
+
+# ---- things only you can do: voice / video recordings, file uploads ----
+
+NEEDS_YOU_JS = """root => {
+  const visible = e => !!(e && (e.offsetWidth || e.offsetHeight || e.getClientRects().length));
+  const files = [...root.querySelectorAll('input[type=file]')];
+  const media = files.find(f => /audio|video/i.test(f.accept || ''));
+  if (media) return /video/i.test(media.accept) ? 'video recording' : 'voice recording';
+  const text = (root.innerText || '').toLowerCase();
+  const recorder = [...root.querySelectorAll('button, [role=button]')].filter(visible)
+    .some(b => /\\b(start |begin )?record(ing)?\\b|\\bmic(rophone)?\\b/i.test(b.innerText || b.getAttribute('aria-label') || ''));
+  if (recorder || /record (a |an |your )?(voice|audio|video)|voice (note|answer|recording)|video (answer|recording)/.test(text))
+    return /video/.test(text) ? 'video recording' : 'voice recording';
+  const upload = files.find(f => f.required || visible(f.closest('label, div') || f));
+  if (upload && !/resume|cv\\b/i.test((upload.closest('label, div, fieldset')?.innerText || '') + ' ' + (upload.accept || '')))
+    return 'file upload';
+  return null;
+}"""
+
+
+async def needs_you_reason(scope: Scope) -> str | None:
+    """'voice recording' / 'video recording' / 'file upload' when the step asks for something only you can give."""
+    return await _root(scope).evaluate(NEEDS_YOU_JS)
+
+
+async def find_button(scope: Scope, label: re.Pattern):
+    """The visible button whose whole label matches (so "Review your application" isn't "View full job description")."""
+    buttons = scope.locator("button:visible")
+    for i in range(await buttons.count()):
+        if label.fullmatch((await buttons.nth(i).inner_text()).strip()):
+            return buttons.nth(i)
+    return None

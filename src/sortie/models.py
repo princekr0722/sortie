@@ -60,8 +60,19 @@ class Answer:
 
 
 @dataclass
+class NeedsYou:
+    """Something Sortie deliberately left for you (a voice recording, a message to reply to, ...)."""
+    site: str
+    what: str
+    title: str = ""
+    company: str = ""
+    url: str = ""
+
+
+@dataclass
 class ApplyResult:
     status: Status
     reason: str = ""
     answers: dict[str, Answer] = field(default_factory=dict)  # question -> answer given
     screenshot_path: str | None = None
+    needs_you: str = ""  # set when the job was left for you: what it needs (e.g. "voice recording")

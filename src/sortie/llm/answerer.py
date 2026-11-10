@@ -285,6 +285,19 @@ def profile_answer(profile: Profile, q: Question, job: Job,
             return Answer(value, "profile") if value else ASK_USER
         return Answer(str(days) if q.kind == QuestionKind.NUMBER else f"{days} days", "profile")
 
+    # CutShort's standard screening questions (2026-11-10)
+    if m := re.search(r"location of this job (?:will be|is) (.+?)[.?]?\s+(?:are you|is this|is that) (?:okay|ok|fine)", ql):
+        city = profile.current_location.split(",")[0]
+        here = any(a in m.group(1) for a in location_aliases(city))
+        if q.options:
+            want = (r"currently in" if here else r"relocate") if (here or profile.willing_to_relocate) else None
+            for option in q.options:
+                if want and re.search(want, option, re.I) and not re.search(r"\bnot okay\b", option, re.I):
+                    return Answer(option, "profile")
+        return _yes_no(here or profile.willing_to_relocate, q)
+    if m := re.search(r"offers? (?:around|about|up ?to)?\s*₹?\s*([\d.]+)\s*(?:l|lpa|lakhs?)\b\s*(?:-|–|to)\s*₹?\s*([\d.]+)\s*(?:l|lpa|lakhs?)\b", ql):
+        return _yes_no(float(m.group(2)) >= expected.min, q)  # "This job offers around ₹7L - ₹15L / yr. Does this work?"
+
     if re.search(r"\boffers?\b", ql):
         return ASK_USER  # offers in hand / their CTC: only you know
 
@@ -385,6 +398,20 @@ class Answerer:
             return None
         self.book.add(q.text, value, q.options)
         return Answer(value, "user")
+
+    async def compose(self, q: Question, job: Job) -> Answer | None:
+        """Free writing for this job (a note to the hiring team): LLM from the resume, notes and job description;
+        if it isn't confident, you, with its draft as the suggestion. Profile rules don't apply (they'd answer
+        "...your experience..." with a duration), and the text isn't saved to answers.yaml (it's job-specific)."""
+        suggestion = None
+        if self.llm.enabled:
+            suggestion, confidence, _ = await self._ask_llm(q, job, SYSTEM)
+            if suggestion and confidence >= MIN_LLM_CONFIDENCE:
+                return suggestion
+        if self.ask_user is None:
+            return None
+        reply = await self.ask_user(q, job, suggestion)
+        return Answer(reply.strip(), "user") if reply and reply.strip() else None
 
     def _fit(self, value: str | list[str], q: Question) -> str | list[str] | None:
         if q.kind == QuestionKind.DATE:

@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from sortie.config import PROJECT_ROOT
-from sortie.models import Job, Status
+from sortie.models import Job, NeedsYou, Status
 
 DEFAULT_DB = PROJECT_ROOT / "data" / "applier.db"
 MAX_ATTEMPTS = 2
@@ -38,7 +38,18 @@ CREATE TABLE IF NOT EXISTS applications (
     screenshot_path TEXT,
     created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS needs_you (
+    id INTEGER PRIMARY KEY,
+    site TEXT NOT NULL,
+    what TEXT NOT NULL,
+    title TEXT,
+    company TEXT,
+    url TEXT,
+    created_at TEXT NOT NULL,
+    UNIQUE (site, url, what)
+);
 """
+NEEDS_YOU_DAYS = 14  # older items drop off the report
 
 
 class Database:
@@ -61,6 +72,17 @@ class Database:
         if not row["total"]:
             return False
         return row["failed"] < row["total"] or row["failed"] >= MAX_ATTEMPTS
+
+    def add_needs_you(self, item: NeedsYou) -> None:
+        self.conn.execute(
+            """INSERT OR IGNORE INTO needs_you (site, what, title, company, url, created_at)
+               VALUES (?, ?, ?, ?, ?, ?)""", (item.site, item.what, item.title, item.company, item.url, _now()))
+        self.conn.commit()
+
+    def needs_you(self, days: int = NEEDS_YOU_DAYS) -> list[NeedsYou]:
+        since = (datetime.now() - timedelta(days=days)).isoformat(timespec="seconds")
+        rows = self.conn.execute("SELECT * FROM needs_you WHERE created_at >= ? ORDER BY created_at DESC", (since,))
+        return [NeedsYou(r["site"], r["what"], r["title"], r["company"], r["url"]) for r in rows]
 
     def reset_failures(self, site: str) -> int:
         """Forget the failed attempts of jobs that never got any other outcome, so the next run retries them

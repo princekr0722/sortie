@@ -21,7 +21,9 @@ from sortie.log import log
 from sortie.terminal import notify
 from sortie.models import Answer, ApplyResult, Job, Status
 from sortie.sites.base import DEBUG_DIR, BlockedError, ConfirmSubmit, SiteAdapter
+from sortie.textutil import html_to_text
 from sortie.sites.forms import MAX_LLM_MOVES, fill_step, form_errors, llm_step_move
+from sortie.sites.forms import find_button as _button
 
 HOME = "in.indeed.com"
 # Indeed has one site per country; one account works on all of them
@@ -102,14 +104,6 @@ def search_url(domain: str, role: str, location: str, start: int = 0) -> str:
     if start:
         query["start"] = start
     return f"https://{domain}/jobs?{urlencode(query)}"
-
-
-def html_to_text(text: str) -> str:
-    text = re.sub(r"<\s*(br|/p|/div|/li|/h\d)\s*/?>", "\n", text, flags=re.I)
-    text = re.sub(r"<\s*li[^>]*>", "- ", text, flags=re.I)
-    text = html.unescape(re.sub(r"<[^>]+>", "", text))
-    lines = (" ".join(line.split()) for line in text.splitlines())
-    return "\n".join(line for line in lines if line)
 
 
 def card_to_job(card: dict, domain: str) -> Job | None:
@@ -427,12 +421,3 @@ class IndeedAdapter(SiteAdapter):
 def unmet_reason(body: str) -> str:
     items = ", ".join(UNMET_ITEM.findall(body)[:5])
     return "Indeed: doesn't meet employer requirements" + (f" ({items})" if items else "")
-
-
-async def _button(scope: Page | Frame, label: re.Pattern):
-    """The visible button whose whole label matches (so "Review your application" isn't "View full job description")."""
-    buttons = scope.locator("button:visible")
-    for i in range(await buttons.count()):
-        if label.fullmatch((await buttons.nth(i).inner_text()).strip()):
-            return buttons.nth(i)
-    return None

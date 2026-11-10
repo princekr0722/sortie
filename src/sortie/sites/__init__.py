@@ -1,4 +1,5 @@
 from sortie.sites.base import SiteAdapter
+from sortie.sites.cutshort import CutshortAdapter
 from sortie.sites.indeed import IndeedAdapter
 from sortie.sites.instahyre import InstahyreAdapter
 from sortie.sites.naukri import NaukriAdapter
@@ -7,7 +8,11 @@ from sortie.sites.naukri import NaukriAdapter
 ADAPTERS: dict[str, type[SiteAdapter]] = {
     NaukriAdapter.name: NaukriAdapter,
     InstahyreAdapter.name: InstahyreAdapter,
+    CutshortAdapter.name: CutshortAdapter,
 }
+
+# runnable only when named (`--sites cutshort`), never in "all sites", until verified live in review mode
+EXPERIMENTAL: dict[str, str] = {}
 
 # built but switched off: name -> (adapter, why). Not runnable until moved back into ADAPTERS.
 # Tracked in doc/TRACKER.md (phase 2) and the site's feature doc.

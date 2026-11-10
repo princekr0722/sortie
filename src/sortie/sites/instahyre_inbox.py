@@ -15,7 +15,7 @@ from playwright.async_api import Page
 
 from sortie.llm.answerer import Answerer, question_kind
 from sortie.log import log
-from sortie.models import Answer, Job, Question, QuestionKind
+from sortie.models import Answer, Job, NeedsYou, Question, QuestionKind
 from sortie.sites.base import ConfirmSubmit
 
 BASE = "https://www.instahyre.com"
@@ -69,6 +69,9 @@ def questionnaire_link(messages: list[dict]) -> tuple[str, str] | None:
     return None
 
 
+INBOX_PAGE = f"{BASE}/candidate/inbox/"  # for links in the needs-you list (opened by you, not the bot)
+
+
 def conversation_job(conversation: dict) -> Job:
     """Inbox titles look like "Acme Labs - Java Developer"."""
     company, _, title = (conversation.get("job_title") or "").partition(" - ")
@@ -83,9 +86,10 @@ def to_question(api_question: dict) -> Question:
 
 
 class InstahyreInbox:
-    def __init__(self, page: Page):
+    def __init__(self, page: Page, needs_you: list[NeedsYou] | None = None):
         self.page = page
         self.questionnaires: list[Questionnaire] = []
+        self.needs_you = needs_you if needs_you is not None else []  # the adapter's list, saved by the runner
 
     async def scan(self) -> None:
         """Check the latest conversations you haven't replied to: queue questionnaires, log the rest."""
@@ -108,6 +112,9 @@ class InstahyreInbox:
             preview = " ".join((conversation.get("latest_message") or "").split())[:120]
             unread = "" if conversation.get("is_latest_msg_read") else ", unread"
             log.info(f"  💬 message from {who}{unread}: \"{preview}\" (left for you to reply)", extra={"detail": True})
+            job = conversation_job(conversation)
+            self.needs_you.append(NeedsYou("instahyre", f"reply to {conversation.get('conv_display_name', 'recruiter')}: "
+                                                         f"\"{preview[:80]}\"", job.title, job.company, INBOX_PAGE))
 
     async def _find_link(self, conversation: dict) -> tuple[str, str] | None:
         response = await self.page.request.get(f"{BASE}/api/v1/resume_modal/emails/message?conv_id={conversation['id']}")

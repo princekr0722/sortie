@@ -39,7 +39,7 @@ Sortie finds jobs on Indian job portals, scores them against the user's resume, 
 - LLM answers are typed into forms as-is: short and form-ready, never explanations. Conditional questions that don't apply get "Not applicable". LLM answers are never saved to `answers.yaml`; only the user's are.
 
 ## Site adapters
-- One file per site in `src/sortie/sites/`, implementing `SiteAdapter` (`ensure_logged_in`, `search`, `get_details`, `apply`), registered in `sites/__init__.py`. A site that's built but not usable goes in `DISABLED` with the reason (Indeed, since 2026-11-09), and its blockers go in the tracker.
+- One file per site in `src/sortie/sites/`, implementing `SiteAdapter` (`ensure_logged_in`, `search`, `get_details`, `apply`), registered in `sites/__init__.py`. A site that's built but not usable goes in `DISABLED` with the reason (Indeed, since 2026-11-09), and its blockers go in the tracker. A new site that hasn't been verified live yet goes in `EXPERIMENTAL`: it runs only when named in `--sites`, never in "all" (CutShort was, until it was verified live on 2026-11-10).
 - Keep all selectors in the module's `SELECTORS` dict. Verify them against the live site and note "verified <date>". Use exact classes: substring selectors like `[class*='chatbot_Chip']` also match containers.
 - Call `confirm(job, answers)` right before the irreversible click. On unknown page states, call `debug_dump()` (saves HTML and a screenshot to `data/debug/`) and fix from the dump.
 - Naukri pre-fills chatbot text boxes from the user's Naukri profile, so clear them before answering.

@@ -58,3 +58,4 @@ Your `roles` list only finds jobs posted under titles you thought of. Once a day
 - **Logged** at the start of each run: `🤖 AI-suggested roles: …`.
 - **No LLM, or the call fails:** your roles only; the run carries on.
 - The title screen and fit score still judge every job, so a loose suggestion costs search pages, not applications.
+- Salary pre-filter (2026-11-10): ranges in lakhs are read in Naukri's ("12-18 Lacs PA") and CutShort's ("₹10L - ₹14L / yr") formats. A range whose top is below `expected_ctc_lpa.min` is skipped. Amounts in full rupees (Indeed) aren't judged.

@@ -12,12 +12,12 @@ from dotenv import load_dotenv
 from sortie import terminal
 from sortie.browser import Browser, set_pace
 from sortie.config import CONFIG_DIR, PROJECT_ROOT, load_profile, load_search
-from sortie.db import Database
+from sortie.db import NEEDS_YOU_DAYS, Database
 from sortie.llm.client import LLMClient
 from sortie.log import log, setup_logging
 from sortie.models import Mode
 from sortie.runner import Runner
-from sortie.sites import ADAPTERS, DISABLED
+from sortie.sites import ADAPTERS, DISABLED, EXPERIMENTAL
 
 
 def _sites(value: str) -> list[str]:
@@ -39,7 +39,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("init", help="create your config files from the examples")
 
     run = sub.add_parser("run", help="search and apply")
-    run.add_argument("--sites", type=_sites, default=None, help="comma-separated, default: all")
+    run.add_argument("--sites", type=_sites, default=None, help="comma-separated, default: all (not experimental)")
     mode = run.add_mutually_exclusive_group()
     mode.add_argument("--review", dest="mode", action="store_const", const=Mode.REVIEW, help="ask before each submit")
     mode.add_argument("--auto", dest="mode", action="store_const", const=Mode.AUTO, help="submit without asking")
@@ -70,7 +70,10 @@ async def _run(args) -> None:
     db = Database()
     try:
         runner = Runner(load_profile(), search, db, LLMClient(), mode, headless, args.limit)
-        await runner.run(args.sites or list(ADAPTERS))
+        for name in args.sites or []:
+            if name in EXPERIMENTAL:
+                log.info(f"⚠️  {name} is experimental ({EXPERIMENTAL[name]}); use --review and a small --limit")
+        await runner.run(args.sites or [n for n in ADAPTERS if n not in EXPERIMENTAL])
     finally:
         db.close()
         log.info(f"  full log: {log_path.relative_to(PROJECT_ROOT)}")
@@ -88,11 +91,26 @@ def _report(args) -> None:
     db = Database()
     rows = db.status_counts(day)
     db.close()
-    print(f"Applications on {day}:")
-    if not rows:
-        print("  none")
+    caps = load_search().daily_caps
+    counts: dict[str, dict[str, int]] = {}
     for site, status, count in rows:
-        print(f"  {site:<10} {status:<15} {count}")
+        counts.setdefault(site, {})[status] = count
+    print(f"Applications on {day}:")
+    for site in dict.fromkeys([*ADAPTERS, *counts]):
+        by_status = counts.get(site, {})
+        applied, cap = by_status.get("applied", 0), caps.get(site, 20)
+        others = " · ".join(f"{s} {n}" for s, n in sorted(by_status.items()) if s != "applied")
+        print(f"  {site:<10} applied {applied:>3} / {cap:<3} ({max(cap - applied, 0)} left)"
+              + (f"   {others}" if others else ""))
+    db = Database()
+    items = db.needs_you()
+    db.close()
+    if items:
+        print(f"\nNeeds you ({len(items)}, last {NEEDS_YOU_DAYS} days):")
+        for item in items:
+            job = " — ".join(x for x in (item.company, item.title) if x)
+            print(f"  {item.site:<10} {item.what}" + (f"\n             {job}" if job else "")
+                  + (f"\n             {item.url}" if item.url else ""))
 
 
 EXAMPLES = {"profile.example.yaml": "profile.yaml", "search.example.yaml": "search.yaml",

@@ -17,7 +17,7 @@ from sortie.llm.client import LLMClient
 from sortie.llm.matcher import score_fit, screen_title
 from sortie.llm.roles import suggest_roles
 from sortie.log import log
-from sortie.models import ApplyResult, Job, Mode, Status
+from sortie.models import ApplyResult, Job, Mode, NeedsYou, Status
 from sortie.sites import ADAPTERS
 from sortie.sites.base import BlockedError, SiteAdapter
 
@@ -79,6 +79,7 @@ class Runner:
                 return
 
         await adapter.before_jobs()
+        self.save_needs_you(adapter)
         cap = self.search.daily_caps.get(name, 20)
         used = self.db.applied_count(name)
         remaining = cap - used
@@ -91,6 +92,7 @@ class Runner:
             self.run_target = remaining
             await self.apply_jobs(adapter, remaining)
         await adapter.after_jobs(self.answerer, self.confirm)
+        self.save_needs_you(adapter)
 
     async def apply_jobs(self, adapter: SiteAdapter, remaining: int) -> None:
         name = adapter.name
@@ -167,6 +169,12 @@ class Runner:
             return False
         return await terminal.confirm_submit(job, answers)
 
+    def save_needs_you(self, adapter: SiteAdapter) -> None:
+        if self.mode != Mode.DRY_RUN:
+            for item in adapter.needs_you:
+                self.db.add_needs_you(item)
+        adapter.needs_you.clear()
+
     def record(self, job: Job, result: ApplyResult, fit_score: int | None = None) -> None:
         self.summary[job.site][result.status.value] += 1
         self.job_number += 1
@@ -188,6 +196,8 @@ class Runner:
         reason = f"fit {fit_score}: {result.reason}" if fit_score is not None and result.reason else result.reason
         answers = {q: a.value for q, a in result.answers.items()}
         self.db.record(job, result.status, reason, fit_score, answers, result.screenshot_path)
+        if result.needs_you:
+            self.db.add_needs_you(NeedsYou(job.site, result.needs_you, job.title, job.company, job.url))
 
     def log_summary(self, seconds: float) -> None:
         minutes, secs = divmod(int(seconds), 60)

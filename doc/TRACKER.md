@@ -2,7 +2,7 @@
 
 Status: ⬜ todo · 🟨 in progress · ✅ done · ⛔ blocked
 
-_Last updated: 2026-11-09_
+_Last updated: 2026-11-10_
 
 ## Phase 1 — Core + Naukri, Instahyre, CutShort
 
@@ -22,13 +22,18 @@ _Last updated: 2026-11-09_
 | 1.10b | Instahyre inbox: last 10 conversations awaiting your reply → answer questionnaires at the end, log other messages | [instahyre](features/site-instahyre.md) | 🟨 | Built + dry-run on a real questionnaire; needs a live `--review` run |
 | 1.17 | `config/about.md` notes (template + `sortie init`), used only for open questions and skill inference | [llm](features/llm-matching-and-answers.md) | ✅ | |
 | 1.18 | Speed: pace setting, title screen, no scoring for company-site jobs, faster Naukri polling | [browser](features/browser-and-safety.md) | ✅ | Confirm on next run |
-| 1.11 | CutShort adapter | [cutshort](features/site-cutshort.md) | ⬜ | Needs your live login |
-| 1.12 | First live run (review mode, cap 3/site) | — | ⬜ | |
+| 1.11 | CutShort adapter | [cutshort](features/site-cutshort.md) | ✅ | Done 2026-11-10; regular site |
+| 1.11a | Search from `__NEXT_DATA__` (role → slug, paging, full description from the listing) | [cutshort](features/site-cutshort.md) | ✅ | 50 newest per keyword (paging is a known limit) |
+| 1.11b | Apply form: submission message (LLM, job-specific), screening questions via the form filler, completeness check before Submit, success check | [cutshort](features/site-cutshort.md) | ✅ Verified live | 5 applications 2026-11-10 |
+| 1.11c | Voice / video / file steps detected; never submitted incomplete; recorded on the needs-you list | [cutshort](features/site-cutshort.md) | ✅ Built | Tested on sample pages; not seen live yet |
+| 1.11d | Conversation follow-ups: answer [Questionnaire] forms (JSON read, form filled in page, confirmed via `screeningSubmitted`), other messages → needs-you | [cutshort](features/site-cutshort.md) | ✅ Verified live | 8 questionnaires sent 2026-11-10 |
+| 1.20 | Needs-you list (all sites): what Sortie left for you, with links, in `sortie report` | [cutshort](features/site-cutshort.md) | ✅ | Instahyre inbox messages included |
+| 1.12 | First live run (review mode, cap 3/site) | — | ✅ | Naukri, Instahyre, CutShort all live |
 | 1.13 | Answer book: `config/answers.yaml`, reused for reworded questions via LLM | [llm](features/llm-matching-and-answers.md) | ✅ | |
 | 1.14 | Better run logging: numbered per-job lines, reasons + Q&A with sources, summary, log file per run | [browser](features/browser-and-safety.md) | ✅ | `data/logs/` |
 | 1.15 | Rename to Sortie; app moved into `sortie/` (git repo root) | — | ✅ | |
 | 1.16 | Generic for any user: example configs + `sortie init`, personal config git-ignored, no hard-coded personal values, test fixtures, README | [PLAN](PLAN.md) | ✅ | |
-| 1.19 | AI-suggested search roles (`ai_roles`, daily cache) | [search](features/search-and-filters.md) | 🟡 Built | |
+| 1.19 | AI-suggested search roles (`ai_roles`, daily cache) | [search](features/search-and-filters.md) | ✅ | in use since 2026-11-10 |
 
 ## Phase 2 — LinkedIn, Indeed
 | # | Task | Status |
