@@ -56,3 +56,10 @@ Measured before: ~27–39 s per application plus ~12–14 s per job that ended a
 | Company-site jobs not fit-scored | ~2 s LLM call each |
 | Naukri: notice watch stops when the chatbot/confirmation appears (was a fixed 6 s) | up to ~6 s per application |
 | Naukri: page checked every 0.5 s (was 2.5 s) | ~2 s per chatbot step |
+
+## Windows (2026-11-10)
+- Every file read and write passes `encoding="utf-8"`: configs, `about.md`, `answers.yaml`, the AI-roles cache and debug snapshots. Windows otherwise uses the ANSI code page and crashes on ₹, emoji and non-English names. `tests/test_portability.py` fails if a new file access leaves the encoding out.
+- On Windows, stdout/stderr are switched to UTF-8 at startup (`cli.main`), so piped or redirected output with ✅ / 🤖 doesn't crash.
+- No `readline` on Windows (no arrow-key editing in prompts); the CAPTCHA alert is a terminal beep only (the `osascript` notification is macOS).
+- Not yet run end to end on Windows.
+

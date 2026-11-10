@@ -5,7 +5,7 @@ from sortie.models import QuestionKind
 from sortie.sites.forms import Field, to_question
 from sortie.sites.indeed import card_to_job, html_to_text, search_targets, search_url
 
-CARDS = json.loads((Path(__file__).parent / "fixtures" / "indeed_cards.json").read_text())
+CARDS = json.loads((Path(__file__).parent / "fixtures" / "indeed_cards.json").read_text(encoding="utf-8"))
 
 
 def test_search_url():

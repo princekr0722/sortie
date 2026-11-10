@@ -45,7 +45,7 @@ async def test_parses_saved_search_page():
         browser = await pw.chromium.launch(channel="chrome", headless=True)
         # the saved page's own scripts would fetch from naukri.com and re-render it
         page = await (await browser.new_context(java_script_enabled=False)).new_page()
-        await page.set_content(FIXTURE.read_text(), wait_until="domcontentloaded")
+        await page.set_content(FIXTURE.read_text(encoding="utf-8"), wait_until="domcontentloaded")
         cards = await page.locator(SELECTORS["card"]).evaluate_all(CARD_JS)
         await browser.close()
     jobs = [card_to_job(c) for c in cards]

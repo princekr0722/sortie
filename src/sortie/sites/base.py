@@ -94,5 +94,5 @@ class SiteAdapter(ABC):
         """Save page HTML + screenshot so unknown page states can be mapped into the adapter's selectors."""
         DEBUG_DIR.mkdir(parents=True, exist_ok=True)
         (DEBUG_DIR / f"{self.name}-{tag}-{datetime.now():%Y%m%d-%H%M%S}.html").write_text(
-            f"<!-- url: {self.page.url} -->\n" + await self.page.content())
+            f"<!-- url: {self.page.url} -->\n" + await self.page.content(), encoding="utf-8")
         return await self.screenshot(tag)

@@ -33,7 +33,7 @@ class AnswerBook:
         self.path = path
         self.entries: list[dict] = []
         if path.exists():
-            self.entries = [e for e in (yaml.safe_load(path.read_text()) or []) if e.get("question")]
+            self.entries = [e for e in (yaml.safe_load(path.read_text(encoding="utf-8")) or []) if e.get("question")]
 
     def lookup(self, question: str) -> str | list[str] | None:
         key = question_key(question)
@@ -49,8 +49,8 @@ class AnswerBook:
         entry["answered"] = date.today().isoformat()
         self.entries.append(entry)
         if not self.path.exists():
-            self.path.write_text(HEADER)
-        with self.path.open("a") as f:
+            self.path.write_text(HEADER, encoding="utf-8")
+        with self.path.open("a", encoding="utf-8") as f:
             f.write("\n" + yaml.safe_dump([entry], sort_keys=False, allow_unicode=True))
 
     def as_prompt(self) -> str:

@@ -77,7 +77,7 @@ async def suggest_roles(llm: LLMClient, profile: Profile, search: SearchConfig, 
     today = today or date.today()
     fingerprint = _fingerprint(search)
     try:
-        cached = json.loads(cache.read_text())
+        cached = json.loads(cache.read_text(encoding="utf-8"))
         if cached.get("date") == today.isoformat() and cached.get("fingerprint") == fingerprint:
             return clean_roles(cached.get("roles", []), search)
     except (OSError, ValueError):
@@ -101,5 +101,6 @@ async def suggest_roles(llm: LLMClient, profile: Profile, search: SearchConfig, 
         return []
     roles = clean_roles(reply.get("roles") or [], search)
     cache.parent.mkdir(parents=True, exist_ok=True)
-    cache.write_text(json.dumps({"date": today.isoformat(), "fingerprint": fingerprint, "roles": roles}, indent=2))
+    cache.write_text(json.dumps({"date": today.isoformat(), "fingerprint": fingerprint, "roles": roles}, indent=2),
+                     encoding="utf-8")
     return roles

@@ -31,7 +31,7 @@ def test_conversation_job_and_url():
 
 
 def test_question_types_from_saved_questionnaire():
-    questions = [to_question(q) for q in json.loads(FIXTURE.read_text())["questions"]]
+    questions = [to_question(q) for q in json.loads(FIXTURE.read_text(encoding="utf-8"))["questions"]]
     by_text = {q.text: q for q in questions}
     assert by_text["How many years of work experience do you have with Java?"].kind == QuestionKind.NUMBER
     notice = by_text["Are you serving notice period?"]

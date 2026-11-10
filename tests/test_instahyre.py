@@ -23,14 +23,14 @@ def test_api_to_job():
 
 
 def test_parses_saved_api_response():
-    jobs = [api_to_job(item) for item in json.loads(FIXTURE.read_text())["objects"]]
+    jobs = [api_to_job(item) for item in json.loads(FIXTURE.read_text(encoding="utf-8"))["objects"]]
     assert len(jobs) == 5
     assert all(j.site_job_id and j.title and j.company and j.url.startswith("https://www.instahyre.com/job-") for j in jobs)
 
 
 def test_opportunity_to_job():
     from sortie.sites.instahyre import opportunity_to_job
-    opps = json.loads((Path(__file__).parent / "fixtures" / "instahyre_opportunities.json").read_text())["objects"]
+    opps = json.loads((Path(__file__).parent / "fixtures" / "instahyre_opportunities.json").read_text(encoding="utf-8"))["objects"]
     jobs = [opportunity_to_job(o) for o in opps]
     assert len(jobs) == 3 and all(j.site == "instahyre" and j.site_job_id.isdigit() and j.company for j in jobs)
     assert all(j.url.startswith("https://www.instahyre.com/job-") for j in jobs)

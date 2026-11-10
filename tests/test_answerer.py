@@ -148,12 +148,12 @@ def test_answer_book_file(tmp_path):
     path = tmp_path / "answers.yaml"
     book = AnswerBook(path)
     book.add("Are you open to night shifts?", "No", ["Yes", "No"])
-    path.write_text(path.read_text() + "\n# my own note\n- question: Preferred interview time?\n  answer: After 6 PM\n")
+    path.write_text(path.read_text(encoding="utf-8") + "\n# my own note\n- question: Preferred interview time?\n  answer: After 6 PM\n")
     book = AnswerBook(path)  # reload picks up hand edits
     assert book.lookup("are you open to NIGHT shifts") == "No"
     assert book.lookup("Preferred interview time?") == "After 6 PM"
     book.add("Do you have a passport?", "Yes")
-    text = path.read_text()
+    text = path.read_text(encoding="utf-8")
     assert "# my own note" in text and "Do you have a passport?" in text
     assert "Preferred interview time?" in book.as_prompt()
 
@@ -202,8 +202,8 @@ def test_load_about_strips_template_comments(tmp_path):
     assert "Order tracking service" in load_about(CONFIG_DIR / "about.example.md")
     copy = tmp_path / "copy" / "about.md"
     copy.parent.mkdir()
-    (copy.parent / "about.example.md").write_text((CONFIG_DIR / "about.example.md").read_text())
-    copy.write_text((CONFIG_DIR / "about.example.md").read_text())
+    (copy.parent / "about.example.md").write_text((CONFIG_DIR / "about.example.md").read_text(encoding="utf-8"))
+    copy.write_text((CONFIG_DIR / "about.example.md").read_text(encoding="utf-8"))
     assert load_about(copy) == ""  # an unedited copy of the template is ignored
 
 

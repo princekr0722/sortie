@@ -308,7 +308,7 @@ class IndeedAdapter(SiteAdapter):
             if not ready:
                 step_name = self.page.url.split("?")[0].rstrip("/").rsplit("/", 1)[-1]
                 path = await self.debug_dump("not-loading")
-                (DEBUG_DIR / (Path(path).stem + "-errors.txt")).write_text("\n".join(self.net_errors) or "(none)")
+                (DEBUG_DIR / (Path(path).stem + "-errors.txt")).write_text("\n".join(self.net_errors) or "(none)", encoding="utf-8")
                 return ApplyResult(Status.FAILED, f"form step '{step_name}' never finished loading ({STEP_CHECKS} checks over {STEP_MAX_S} s); "
                                    f"{len(self.net_errors)} request/page errors saved next to the debug dump",
                                    answers, path)

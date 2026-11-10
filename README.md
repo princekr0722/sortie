@@ -5,7 +5,7 @@ Sortie searches job portals for roles that fit you, scores each job against your
 It applies selectively: every job goes through your filters and an optional LLM fit score. Each question is answered from your profile, then from your saved answers, then by the LLM, and you're asked only when none of those can answer. Salary, visa and legal questions are never made up.
 
 ## Requirements
-- macOS / Linux, Python 3.11+
+- macOS, Linux or Windows; Python 3.11+ (developed on macOS; Windows support hasn't been run end to end yet)
 - Google Chrome installed (Sortie drives a separate Chrome profile; your normal browser is untouched)
 - Optional: an LLM API key (Anthropic, OpenAI, Gemini, NVIDIA, any OpenAI-compatible endpoint, or local Ollama)
 
@@ -15,6 +15,13 @@ python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 .venv/bin/sortie init            # creates config/profile.yaml, search.yaml, about.md, .env
 ```
+On **Windows** (PowerShell), the virtual environment's commands live in `.venv\Scripts\`:
+```powershell
+py -m venv .venv
+.venv\Scripts\pip install -e ".[dev]"
+.venv\Scripts\sortie init
+```
+Everywhere this README says `.venv/bin/sortie …`, use `.venv\Scripts\sortie …` on Windows. On Windows, a CAPTCHA alert is a terminal beep (the desktop notification is macOS-only), and the answer prompt has no arrow-key line editing.
 Then:
 1. **`config/profile.yaml`**: your details. Experience is stored as **start dates** (`career_start`, `skills_since`) and computed on every run, so it never goes stale.
 2. **`config/search.yaml`**: roles, cities, experience range, companies/keywords to exclude, daily caps.

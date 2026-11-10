@@ -4,7 +4,7 @@ from pathlib import Path
 from sortie.sites.cutshort import data_to_job, listing_url, role_slugs
 
 SKILLS = ["Python", "Django", "Vue", "Microservices"]
-ITEMS = json.loads((Path(__file__).parent / "fixtures" / "cutshort_jobs.json").read_text())
+ITEMS = json.loads((Path(__file__).parent / "fixtures" / "cutshort_jobs.json").read_text(encoding="utf-8"))
 
 
 def test_role_slugs():

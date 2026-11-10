@@ -124,7 +124,7 @@ def _read_yaml(path: Path) -> dict:
     if not path.exists():
         raise SystemExit(f"Missing {path.relative_to(PROJECT_ROOT) if path.is_relative_to(PROJECT_ROOT) else path}. "
                          "Run `sortie init` to create it from the example, then fill it in.")
-    with path.open() as f:
+    with path.open(encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 
@@ -143,9 +143,9 @@ def load_about(path: Path = CONFIG_DIR / "about.md") -> str:
     if not path.exists():
         return ""
     strip = lambda raw: re.sub(r"<!--.*?-->", "", raw, flags=re.DOTALL).strip()
-    text = strip(path.read_text())
+    text = strip(path.read_text(encoding="utf-8"))
     example = path.with_name("about.example.md")
-    if path != example and example.exists() and text == strip(example.read_text()):
+    if path != example and example.exists() and text == strip(example.read_text(encoding="utf-8")):
         return ""  # untouched copy of the template: its sample projects aren't yours
     return text[:ABOUT_MAX_CHARS]
 

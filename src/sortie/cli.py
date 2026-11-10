@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import shutil
+import sys
 from datetime import date
 
 from dotenv import load_dotenv
@@ -137,6 +138,9 @@ Next:
 
 
 def main() -> None:
+    if sys.platform == "win32":  # piped / redirected output would otherwise use the ANSI code page and choke on ✅
+        for stream in (sys.stdout, sys.stderr):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     load_dotenv(CONFIG_DIR / ".env")
     args = build_parser().parse_args()
     if args.command == "init":
