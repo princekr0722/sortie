@@ -52,6 +52,7 @@ Then:
 ## Use
 ```bash
 .venv/bin/sortie run --sites naukri --review --limit 3   # asks before each submit (start here)
+.venv/bin/sortie run --sites instahyre,cutshort --review # any site, or several (instahyre, cutshort, naukri)
 .venv/bin/sortie run --sites naukri --auto               # applies on its own, within daily caps
 .venv/bin/sortie run --sites naukri --dry-run            # never submits, records nothing
 .venv/bin/sortie report                                  # today's applied / cap per site, and what needs you
