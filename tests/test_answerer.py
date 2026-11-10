@@ -291,3 +291,35 @@ async def test_llm_date_answer_must_be_a_date(profile, tmp_path):
                  FakeLLM({"answer": "after my notice period", "confidence": 0.9}), None)
     q = Question("Date of last appraisal", K.DATE, date_format="%d/%m/%Y")
     assert await a.answer(q, JOB) is None
+
+
+def test_relocation_with_descriptive_options(profile):
+    options = ["Can Relocate All Over India", "Can Only Relocate to Selected Cities", "Not Willing to Relocate"]
+    want = options[0] if profile.willing_to_relocate else options[2]
+    assert ans(profile, "Are you willing to relocate? (Our offices are in Jaipur, Kolkata)", K.CHOICE, options) == want
+
+
+def test_notice_period_with_conditional_serving(profile):
+    days = profile.notice_period_days
+    assert ans(profile, "What is your notice period? please mention your LWD If serving", K.TEXT) == f"{days} days"
+
+
+def test_serving_notice_from_profile(profile):
+    from datetime import date as d
+    yn = ["Yes", "No"]
+    not_serving = profile.model_copy(update={"serving_notice": False, "last_working_day": None})
+    assert ans(not_serving, "Are you currently serving your notice period?", K.CHOICE, yn) == "No"
+    assert ans(not_serving, "What is your last working day?") == "Not applicable"
+    assert ans(not_serving, "What is your notice period? please mention your LWD If serving") == \
+        f"{not_serving.notice_period_days} days"
+
+    serving = profile.model_copy(update={"serving_notice": True, "last_working_day": d(2026, 12, 15)})
+    assert ans(serving, "Are you currently serving your notice period?", K.CHOICE, yn) == "Yes"
+    assert ans(serving, "What is your notice period? please mention your LWD If serving") == \
+        "Serving notice, last working day 15 Dec 2026"
+    lwd = Question("Last working day", K.DATE, date_format="%d/%m/%Y")
+    assert profile_answer(serving, lwd, JOB, TODAY).value == "15/12/2026"
+    start = Question("When can you start?", K.DATE, date_format="%d/%m/%Y")
+    assert profile_answer(serving, start, JOB, TODAY).value == "16/12/2026"
+    days = (d(2026, 12, 15) - TODAY).days + 1
+    assert ans(serving, "Notice period in days", K.NUMBER) == str(days)

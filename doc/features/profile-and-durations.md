@@ -56,3 +56,10 @@ Longer context (projects, achievements, preferences) goes in `config/about.md`, 
 - Work authorization / sponsorship: the country is taken from the question or the job's location (any country listed in `work_authorization`, cities count, e.g. Dubai → UAE); otherwise `home_country`. Sponsorship = "Yes" where you're not authorized.
 - Education dropdowns: first option matching `education_aliases`, in order.
 - Missing `resume_pdf`: a warning, and the LLM works from the profile alone.
+
+## Notice status
+- `notice_period_days`: your contractual notice.
+- `serving_notice: true/false`: whether you've resigned and are serving it now.
+- `last_working_day: YYYY-MM-DD`: your last day, when serving.
+- At runtime: `days_to_join()` = the days left until your LWD when serving, else `notice_period_days`. `joining_date()` = the day after your LWD, else today + notice. Update these two fields when you resign; every notice / LWD / joining question is then answered from them, with no prompts.
+

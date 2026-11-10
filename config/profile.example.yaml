@@ -11,6 +11,8 @@ career_start: 2022-07-01          # first full-time job; total experience is com
 current_ctc_lpa: 10               # lakhs per annum
 expected_ctc_lpa: {min: 14, max: 18, single_value: 16}   # single_value for one-number fields
 notice_period_days: 30
+serving_notice: false     # true once you've resigned and are serving your notice
+last_working_day:         # YYYY-MM-DD, when serving_notice is true
 willing_to_relocate: true
 home_country: India
 work_authorization:               # country -> allowed to work there without sponsorship

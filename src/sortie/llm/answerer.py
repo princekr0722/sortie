@@ -176,9 +176,19 @@ def _is_yes_no(q: Question) -> bool:
     return bool(q.options) and {o.strip().lower() for o in q.options} <= {"yes", "no"}
 
 
+NEGATIVE_OPTION = re.compile(r"\b(no|not|never|unwilling|don'?t|do not|cannot|can'?t)\b", re.I)
+
+
 def _yes_no(flag: bool, q: Question) -> Answer:
+    """Yes/No from a profile fact. Descriptive options ("Can Relocate All Over India" / "Not Willing to
+    Relocate") get the first option that does / doesn't read as a refusal."""
     value = "Yes" if flag else "No"
-    return Answer(pick_option(value, q.options) or value, "profile")
+    if picked := pick_option(value, q.options):
+        return Answer(picked, "profile")
+    for option in q.options:
+        if bool(NEGATIVE_OPTION.search(option)) != flag:
+            return Answer(option, "profile")
+    return Answer(value, "profile")
 
 
 def _fmt(n: float) -> str:
@@ -248,15 +258,25 @@ def profile_answer(profile: Profile, q: Question, job: Job,
     ql = q.text.lower()
     expected = profile.expected_ctc_lpa
 
+    lwd = profile.last_working_day if profile.serving_notice else None
+    lwd_question = re.search(r"\blwd\b|last working (day|date)|relieving date", ql)
+    if lwd_question and "notice" not in ql:  # "What is your last working day?"
+        if q.kind == QuestionKind.DATE:
+            return Answer(lwd.strftime(q.date_format), "profile") if lwd else None
+        return Answer(f"{lwd:%d %b %Y}" if lwd else "Not applicable", "profile")
+
     if q.kind == QuestionKind.DATE and re.search(
             r"start|join|available|availability|notice", ql):  # "when would you be able to start employment?"
-        start = (today or date.today()) + timedelta(days=profile.notice_period_days)
-        return Answer(start.strftime(q.date_format), "profile")
+        return Answer(profile.joining_date(today).strftime(q.date_format), "profile")
+
+    # "Are you (currently) serving your notice period?" ("...if serving" is only a condition)
+    if "serving" in ql and not re.search(r"\bif (you are |you're |currently )?serving\b", ql) and _is_yes_no(q):
+        return _yes_no(profile.serving_notice, q)
 
     if re.search(r"notice period|how soon can you join|joining time|when can you (join|start)", ql):
-        if "serving" in ql:
-            return ASK_USER  # the profile doesn't say; ask once, then it's in answers.yaml
-        days = profile.notice_period_days
+        days = profile.days_to_join(today)
+        if lwd and q.kind == QuestionKind.TEXT:  # "notice period? mention LWD if serving"
+            return Answer(f"Serving notice, last working day {lwd:%d %b %Y}", "profile")
         if q.kind == QuestionKind.CHOICE:
             for o in q.options:
                 if re.search(rf"\b{days}\b|1 month|one month", o.lower()):

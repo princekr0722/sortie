@@ -28,6 +28,7 @@ _Last updated: 2026-11-09_
 | 1.14 | Better run logging: numbered per-job lines, reasons + Q&A with sources, summary, log file per run | [browser](features/browser-and-safety.md) | ✅ | `data/logs/` |
 | 1.15 | Rename to Sortie; app moved into `sortie/` (git repo root) | — | ✅ | |
 | 1.16 | Generic for any user: example configs + `sortie init`, personal config git-ignored, no hard-coded personal values, test fixtures, README | [PLAN](PLAN.md) | ✅ | |
+| 1.19 | AI-suggested search roles (`ai_roles`, daily cache) | [search](features/search-and-filters.md) | 🟡 Built | |
 
 ## Phase 2 — LinkedIn, Indeed
 | # | Task | Status |

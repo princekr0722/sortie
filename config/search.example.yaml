@@ -13,4 +13,5 @@ exclude_keywords: [intern, lead, manager]  # matched as whole words in the job t
 daily_caps: {naukri: 40, instahyre: 30, indeed: 25, cutshort: 30}
 headless: false
 mode: review   # review | auto
+ai_roles: 4    # extra job titles the AI may add to `roles` each day (needs an LLM; 0 = off)
 pace: normal   # careful (5-12 s) | normal (2-6 s) | fast (1-3 s) pauses between pages

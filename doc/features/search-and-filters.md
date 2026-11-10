@@ -1,6 +1,6 @@
 # Feature: Search Settings & Pre-filters
 
-**Status:** Done (config + pre-filters) · **Phase:** 1 · **Code:** `config/search.yaml`, `src/sortie/filters.py`
+**Status:** Done (config + pre-filters); AI-suggested roles added 2026-11-10 · **Phase:** 1 · **Code:** `config/search.yaml`, `src/sortie/filters.py`, `src/sortie/llm/roles.py`
 
 ## Purpose
 Decide what to search for and drop unsuitable jobs **before** any LLM call (cheap, deterministic).
@@ -41,3 +41,20 @@ After these rules, an LLM **title screen** drops clearly off-target titles befor
 - Company match ignores suffixes (Pvt, Ltd, Inc, Technologies, India), so "Acme India Pvt Ltd" matches an exclusion of "Acme".
 - Salary rule only applies when the salary is in Lacs (unlisted/other formats pass).
 - Locations outside India: Indian portals list almost none (Naukri skips them); they matter from phase 2 (LinkedIn, Indeed country sites).
+
+## AI-suggested roles (`ai_roles`)
+Your `roles` list only finds jobs posted under titles you thought of. Once a day the LLM adds titles you'd fit that recruiters actually use.
+
+- **Input:** resume, profile (total experience, skills with their durations), `about.md`, your `roles`, `experience_range`, `exclude_keywords`.
+- **Output:** up to `ai_roles` extra search titles (default 4, `0` = off). They're short, recruiter-style (2–5 words), at your level, and different from your roles. Examples: "Spring Boot Developer", "Java Microservices Engineer".
+- **Cleaned in code**, because a small model doesn't reliably follow prompt rules. Dropped:
+  - duplicates and **rewordings** of your roles: the same words once engineer/developer/… are ignored, so "Backend Engineer Java" duplicates "Python Backend Developer";
+  - bare **tool titles** like "Kafka Engineer" or "Redis Developer" (a two-word title is kept only when its first word is a discipline: backend, full stack, Java, cloud, AI, …);
+  - titles with an excluded keyword, or longer than 60 characters / 6 words.
+
+  The LLM is asked for `ai_roles + 2` titles so there's room to filter, then the list is cut to `ai_roles`.
+- **Order:** your roles are searched first and the AI's after them, so the daily cap fills from your own titles first.
+- **Cache:** `data/ai_roles.json` is reused for the whole day and refreshed on the next day, or as soon as your roles, exclusions or `ai_roles` change. That's one LLM call a day.
+- **Logged** at the start of each run: `🤖 AI-suggested roles: …`.
+- **No LLM, or the call fails:** your roles only; the run carries on.
+- The title screen and fit score still judge every job, so a loose suggestion costs search pages, not applications.

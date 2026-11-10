@@ -198,7 +198,15 @@ class NaukriAdapter(SiteAdapter):
             return ApplyResult(Status.SKIPPED, "not submitted")
         await button.first.click()
         notice = await self._read_notice()
-        result = await self._finish_application(job, answerer)
+        try:
+            result = await self._finish_application(job, answerer)
+        except PlaywrightError:
+            # the last answer often submits and leaves the chat at once, so a click aimed at the chat fails;
+            # what counts is whether Naukri shows the apply confirmation (seen 2026-11-10)
+            await self.page.wait_for_timeout(1500)
+            if not await self._succeeded():
+                raise
+            result = ApplyResult(Status.APPLIED, screenshot_path=await self.screenshot("applied"))
         if result.status == Status.APPLIED:
             self.no_effect_streak = 0
         elif result.reason == NO_EFFECT:

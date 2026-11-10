@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Literal
 
@@ -71,6 +71,8 @@ class Profile(BaseModel):
     current_ctc_lpa: float
     expected_ctc_lpa: ExpectedCtc
     notice_period_days: int
+    serving_notice: bool = False  # resigned and serving your notice period now
+    last_working_day: date | None = None  # when serving_notice: your last day at the current job
     willing_to_relocate: bool
     work_authorization: dict[str, bool]
     education: str
@@ -79,6 +81,17 @@ class Profile(BaseModel):
     home_country: str = "India"  # used for work-authorization questions when the job doesn't name a country
     skills_since: dict[str, date | None]
     resume_pdf: Path
+
+    def days_to_join(self, today: date | None = None) -> int:
+        """Days until you can join: what's left of the notice you're serving, else your notice period."""
+        if self.serving_notice and self.last_working_day:
+            return max(0, (self.last_working_day - (today or date.today())).days + 1)
+        return self.notice_period_days
+
+    def joining_date(self, today: date | None = None) -> date:
+        if self.serving_notice and self.last_working_day:
+            return self.last_working_day + timedelta(days=1)
+        return (today or date.today()) + timedelta(days=self.notice_period_days)
 
     def total_experience(self, today: date | None = None) -> Duration:
         return Duration.since(self.career_start, today)
@@ -104,6 +117,7 @@ class SearchConfig(BaseModel):
     headless: bool = False
     mode: Literal["review", "auto"] = "review"
     pace: Literal["careful", "normal", "fast"] = "normal"  # pauses between page loads, see browser.PACES
+    ai_roles: int = 4  # extra search titles the LLM may add each day (0 = off), see llm/roles.py
 
 
 def _read_yaml(path: Path) -> dict:

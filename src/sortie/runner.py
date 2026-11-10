@@ -15,6 +15,7 @@ from sortie.llm.answer_book import AnswerBook
 from sortie.llm.answerer import Answerer
 from sortie.llm.client import LLMClient
 from sortie.llm.matcher import score_fit, screen_title
+from sortie.llm.roles import suggest_roles
 from sortie.log import log
 from sortie.models import ApplyResult, Job, Mode, Status
 from sortie.sites import ADAPTERS
@@ -55,6 +56,9 @@ class Runner:
     async def run(self, sites: list[str]) -> None:
         started = time.monotonic()
         log.info(f"Mode: {self.mode.value} · LLM: {self.llm.model or 'off (rules + your answers only)'}")
+        if extra := await suggest_roles(self.llm, self.profile, self.search, self.answerer.about):
+            log.info(f"🤖 AI-suggested roles: {', '.join(extra)}  (ai_roles in search.yaml; 0 = off)")
+            self.search = self.search.model_copy(update={"roles": self.search.roles + extra})
         async with Browser(self.headless) as browser:
             for name in sites:
                 adapter = ADAPTERS[name](await browser.new_page())
