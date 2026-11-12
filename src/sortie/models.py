@@ -70,9 +70,21 @@ class NeedsYou:
 
 
 @dataclass
+class Followup:
+    """An application whose recruiter follow-up (questionnaire) Sortie still has to handle."""
+    site: str
+    site_job_id: str
+    title: str = ""
+    company: str = ""
+    conversation_id: str = ""
+    created_at: str = ""
+
+
+@dataclass
 class ApplyResult:
     status: Status
     reason: str = ""
     answers: dict[str, Answer] = field(default_factory=dict)  # question -> answer given
     screenshot_path: str | None = None
     needs_you: str = ""  # set when the job was left for you: what it needs (e.g. "voice recording")
+    conversation_id: str = ""  # the site's conversation for this application, when known (follow-ups)

@@ -27,6 +27,7 @@ _Last updated: 2026-11-10_
 | 1.11b | Apply form: submission message (LLM, job-specific), screening questions via the form filler, completeness check before Submit, success check | [cutshort](features/site-cutshort.md) | ✅ Verified live | 5 applications 2026-11-10 |
 | 1.11c | Voice / video / file steps detected; never submitted incomplete; recorded on the needs-you list | [cutshort](features/site-cutshort.md) | ✅ Built | Tested on sample pages; not seen live yet |
 | 1.11d | Conversation follow-ups: answer [Questionnaire] forms (JSON read, form filled in page, confirmed via `screeningSubmitted`), other messages → needs-you | [cutshort](features/site-cutshort.md) | ✅ Verified live | 8 questionnaires sent 2026-11-10 |
+| 1.21 | Follow-up tracking: every application on Instahyre/CutShort tracked until its questionnaire is handled, checked before and after applying; backfill of the last 14 days | [tracking](features/tracking-db.md) | ✅ | Live dry run: 31 missed CutShort questionnaires found |
 | 1.20 | Needs-you list (all sites): what Sortie left for you, with links, in `sortie report` | [cutshort](features/site-cutshort.md) | ✅ | Instahyre inbox messages included |
 | 1.12 | First live run (review mode, cap 3/site) | — | ✅ | Naukri, Instahyre, CutShort all live |
 | 1.13 | Answer book: `config/answers.yaml`, reused for reworded questions via LLM | [llm](features/llm-matching-and-answers.md) | ✅ | |

@@ -44,4 +44,41 @@ def test_awaiting_reply():
     assert awaiting_reply({"latest_message": "Asha: Hi, Thanks for showing interest"})
     assert not awaiting_reply({"latest_message": "You: done"})
     assert not awaiting_reply({"latest_message": "  You: I've filled the form."})
-    assert inbox_url().endswith("candidate_conversation?limit=10&offset=0")
+    assert inbox_url().endswith("candidate_conversation?limit=20&offset=0")
+    assert inbox_url(20, 40).endswith("limit=20&offset=40")
+
+
+def test_conversation_age():
+    from datetime import datetime, timezone
+    from sortie.sites.instahyre_inbox import conversation_age_ok
+    now = datetime(2026, 11, 20, tzinfo=timezone.utc)
+    assert conversation_age_ok({"modified": "2026-11-12T10:00:00Z"}, now)
+    assert not conversation_age_ok({"modified": "2026-10-01T10:00:00Z"}, now)
+    assert conversation_age_ok({"latest_message": "no date field"}, now)  # unknown: the cap bounds it
+
+
+async def test_finished_questionnaires_are_not_reopened():
+    from sortie.sites.instahyre_inbox import InstahyreInbox
+    convo = {"id": 7, "job_id": 42, "latest_message": "Thanks for showing interest in working with Acme. As part of",
+             "conv_display_name": "Asha", "job_title": "Acme - Java Developer"}
+
+    class Response:
+        def __init__(self, body): self.body, self.ok, self.status = body, True, 200
+        async def json(self): return self.body
+
+    class Request:
+        async def get(self, url):
+            if "inbox_page" in url:
+                return Response({"objects": [convo], "meta": {"next": None}})
+            return Response({"objects": [{"content_html": "https://www.instahyre.com/questionnaire/111/222"}]})
+
+    class Page:
+        request = Request()
+
+    inbox = InstahyreInbox(Page(), [])
+    inbox.done = {"111"}
+    seen = await inbox.scan({"42"})
+    assert inbox.questionnaires == [] and seen == {"42": "done"}
+    inbox.done = set()
+    await inbox.scan()
+    assert [q.questionnaire_id for q in inbox.questionnaires] == ["111"]

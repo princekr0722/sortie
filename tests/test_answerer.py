@@ -354,3 +354,10 @@ def test_current_and_expected_ctc_in_one_question(profile):
     got = ans(profile, "What is your current annual CTC and expected CTC? (please mention: fixed CTC + variable CTC + ESOPs, if any)")
     assert got == (f"Current CTC: {profile.current_ctc_lpa:g} LPA; expected: "
                    f"{profile.expected_ctc_lpa.min:g}-{profile.expected_ctc_lpa.max:g} LPA")
+
+
+def test_join_time_wordings(profile):
+    days = f"{profile.notice_period_days} days"
+    for q in ["If we give you an offer today, how soon can we expect you to join?",
+              "How soon could you join?", "What is your earliest joining date?"]:
+        assert ans(profile, q) == days, q

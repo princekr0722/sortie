@@ -49,14 +49,19 @@ Goal: every form Sortie can complete honestly gets completed (the apply form, th
 ## After applying: CutShort conversations (built and dry-run verified 2026-11-10)
 A moment after you apply, the recruiter's side (often "Voila on <recruiter>'s behalf") posts a **[Questionnaire]** in the job's conversation: a short form of screening questions with a Submit button.
 
-- **Code:** `sites/cutshort_inbox.py` (`CutshortInbox`).
-  - `before_jobs` scans.
-  - `after_jobs` waits until the newest application is a minute old (`QUESTIONNAIRE_DELAY_S`), scans again and answers.
+- **Code:** `sites/cutshort_inbox.py` (`CutshortInbox.follow_up`), called by the runner **before applying** (pending ones first) and, if anything was applied, **again after**. `after_jobs` only waits until the newest application is a minute old (`QUESTIONNAIRE_DELAY_S`).
+- **Tracked applications (reliable path):** every application Sortie sends is a follow-up record (see tracking-db.md), with its conversation id from the card's "View conversation" link. Each open record's thread is loaded directly:
+  - submitted → `answered`;
+  - an open questionnaire → answered (`answered`, or `needs_you`);
+  - the last message from the recruiter → needs-you;
+  - otherwise it stays open.
+
+  Records without a conversation id (backfilled) are matched to their conversation by job id while paging the awaiting list. The first live run found 31 questionnaires the page-based inbox had missed.
 - **Read without read receipts** (JSON, through the browser session):
   - `GET /conversations-v2/candidate?page=1&user_role=candidate&convo_status=awaiting`: the list. No account-specific `context` parameter is needed.
   - `GET /loadthread-v2/<conversation id>`: a thread. Opening a thread in the page also POSTs `/markthreadasread`; reading the JSON doesn't.
   - Your user id: `GET /api/auth/user` → `_id`. Conversations whose last message is yours are skipped.
-- **Which:** the latest 15 conversations awaiting your reply, from the last 14 days, whoever applied (you or Sortie). Review mode shows every questionnaire before it's sent.
+- **Which:** every conversation awaiting your reply from the **last 14 days**, whoever applied (you or Sortie). Sortie reads page after page (CutShort sends 8 per page, newest first) and stops when a page reaches older conversations. No cap on the count; only a 200-page safety stop. Reading only page 1 had covered just the newest 8, so a run with many applications missed most of its questionnaires. Review mode shows every questionnaire before it's sent.
 - **Questionnaire data:** in the thread, the screening message has `questions[]`. Each has `question.title`, `responseType` (`mcq` seen so far: 23 of 23 on 2026-11-10), `options[].label` and `isMandatory`, plus `screeningSubmitted` on the message.
 - **Answering:** the usual order (profile → answers.yaml → LLM → you). CutShort's standard questions are covered by profile rules:
   - "The location of this job will be X. Are you okay with this?": in your city → "currently in this location"; else relocate → "can relocate"; else "not okay".
@@ -112,3 +117,5 @@ Anything Sortie deliberately leaves for you should be easy to find, not buried i
 | "What is your current annual CTC and expected CTC? (fixed + variable + ESOPs)" would have got only the expected CTC | Profile rule: a text question asking for both → "Current CTC: X LPA; expected: A-B LPA" |
 | 4 questionnaires "failed" because CutShort's server was down: thread pages were Cloudflare's "Gateway time-out" (504) | A 5xx thread page stops the questionnaire step for that run with one clear message; they stay open for the next run |
 | The text question "current annual CTC and expected CTC?" was sent as "18": the kind was guessed from the wording (CTC → decimal), so the both-values rule (text only) was skipped | CutShort `responseType: text` is always a TEXT question |
+| Only page 1 of conversations (8) was read, so questionnaires beyond the newest 8 waited for another run (13 applications took 2 runs) | Page through until conversations are older than 14 days (cap 60) |
+| Questionnaires beyond the newest 8 conversations were never answered: 31 in the last 14 days (found 2026-11-11) | Follow-up records: every application is tracked and its own conversation checked every run (before and after applying), backfilled for the last 14 days |

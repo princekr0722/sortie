@@ -151,3 +151,45 @@ def test_pace_scales_explicit_bounds():
     browser.set_pace("fast")
     assert browser._pace == (1, 3)
     browser.set_pace("normal")
+
+
+class FollowupSite(FakeSite):
+    """A site whose recruiters follow up: records when follow_up runs relative to applying."""
+    FOLLOWUPS = True
+
+    def __init__(self, jobs):
+        super().__init__(jobs)
+        self.events = []
+
+    async def apply(self, job, answerer, confirm):
+        self.events.append(f"apply {job.site_job_id}")
+        result = await super().apply(job, answerer, confirm)
+        result.conversation_id = f"conv-{job.site_job_id}"
+        return result
+
+    async def follow_up(self, answerer, confirm):
+        self.events.append(f"follow_up {sorted(f.site_job_id for f in self.followups)}")
+        for f in self.followups:  # pretend every open questionnaire got answered
+            self.followup_updates.append((f.site_job_id, "answered", "questionnaire sent", f.conversation_id))
+
+
+async def test_follow_ups_before_and_after_applying(make_runner):
+    r = make_runner(Mode.AUTO)
+    r.follows_up["fake"] = True
+    r.db.record(jobs(1)[0], Status.APPLIED)  # applied in an earlier run: backfilled, answered before applying
+    site = FollowupSite(jobs(3)[1:])
+    await r.run_site(site)
+    assert site.events[0] == "follow_up ['0']"  # open ones answered before applying
+    assert site.events[1:3] == ["apply 1", "apply 2"]
+    assert site.events[3] == "follow_up ['1', '2']"  # this run's applications, after applying
+    counts = r.db.followup_counts("fake")
+    assert counts == {"answered": 3}
+    assert {f.site_job_id for f in r.db.open_followups("fake")} == set()
+
+
+async def test_no_second_pass_when_nothing_applied(make_runner):
+    r = make_runner(Mode.AUTO)
+    r.follows_up["fake"] = True
+    site = FollowupSite([])
+    await r.run_site(site)
+    assert site.events == ["follow_up []"]

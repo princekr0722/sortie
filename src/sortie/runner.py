@@ -51,6 +51,7 @@ class Runner:
         self.reached_submit = False  # dry runs count a job once it gets as far as the submit step
         self.title_cache: dict[str, str | None] = {}
         self.job_number = 0
+        self.follows_up: dict[str, bool] = {}  # site -> tracks follow-ups (SiteAdapter.FOLLOWUPS)
         self.run_target = 0  # applications wanted from the current site this run (cap/limit)
 
     async def run(self, sites: list[str]) -> None:
@@ -63,6 +64,7 @@ class Runner:
             for name in sites:
                 adapter = ADAPTERS[name](await browser.new_page())
                 adapter.attended = self.mode == Mode.REVIEW
+                self.follows_up[name] = adapter.FOLLOWUPS
                 self.summary[name] = Counter()
                 try:
                     await self.run_site(adapter)
@@ -80,6 +82,8 @@ class Runner:
 
         await adapter.before_jobs()
         self.save_needs_you(adapter)
+        # open questionnaires / conversations first: they're from applications already sent
+        await self.follow_up(adapter, "before applying")
         cap = self.search.daily_caps.get(name, 20)
         used = self.db.applied_count(name)
         remaining = cap - used
@@ -93,6 +97,30 @@ class Runner:
             await self.apply_jobs(adapter, remaining)
         await adapter.after_jobs(self.answerer, self.confirm)
         self.save_needs_you(adapter)
+        if self.summary[name][Status.APPLIED.value]:  # new applications bring new questionnaires
+            await self.follow_up(adapter, "after applying")
+
+    async def follow_up(self, adapter: SiteAdapter, when: str) -> None:
+        """Handle recruiter follow-ups: every open tracked application (backfilled for the last 14 days) plus the
+        site's inbox. Answers questionnaires, leaves other messages for you."""
+        if not adapter.FOLLOWUPS:
+            return
+        if self.mode != Mode.DRY_RUN:
+            if added := self.db.backfill_followups(adapter.name):
+                log.info(f"  follow-ups: now tracking {added} earlier applications", extra={"detail": True})
+            self.db.expire_followups(adapter.name)
+        adapter.followups = self.db.open_followups(adapter.name)
+        adapter.done_questionnaires = self.db.done_questionnaires(adapter.name)
+        log.info(f"  follow-ups {when}: {len(adapter.followups)} open applications", extra={"detail": True})
+        await adapter.follow_up(self.answerer, self.confirm)
+        self.save_needs_you(adapter)
+        if self.mode != Mode.DRY_RUN:
+            for site_job_id, status, note, conversation_id in adapter.followup_updates:
+                self.db.update_followup(adapter.name, site_job_id, status, note, conversation_id)
+            for questionnaire_id, outcome in adapter.questionnaires_done:
+                self.db.mark_questionnaire_done(adapter.name, questionnaire_id, outcome)
+        adapter.followup_updates.clear()
+        adapter.questionnaires_done.clear()
 
     async def apply_jobs(self, adapter: SiteAdapter, remaining: int) -> None:
         name = adapter.name
@@ -198,6 +226,8 @@ class Runner:
         self.db.record(job, result.status, reason, fit_score, answers, result.screenshot_path)
         if result.needs_you:
             self.db.add_needs_you(NeedsYou(job.site, result.needs_you, job.title, job.company, job.url))
+        if result.status == Status.APPLIED and self.follows_up.get(job.site):
+            self.db.open_followup(job.site, job.site_job_id, job.title, job.company, result.conversation_id)
 
     def log_summary(self, seconds: float) -> None:
         minutes, secs = divmod(int(seconds), 60)

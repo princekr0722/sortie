@@ -11,7 +11,7 @@ from playwright.async_api import Page
 
 from sortie.config import PROJECT_ROOT, Profile, SearchConfig
 from sortie.llm.answerer import Answerer
-from sortie.models import ApplyResult, Job, NeedsYou
+from sortie.models import ApplyResult, Followup, Job, NeedsYou
 
 SCREENSHOT_DIR = PROJECT_ROOT / "data" / "screenshots"
 DEBUG_DIR = PROJECT_ROOT / "data" / "debug"
@@ -44,11 +44,18 @@ class BlockedError(Exception):
 class SiteAdapter(ABC):
     name: str
     login_url: str
+    FOLLOWUPS = False  # recruiters follow applications up (questionnaires): track each one until handled
 
     def __init__(self, page: Page):
         self.page = page
         self.attended = False  # someone is at the screen (review mode): CAPTCHAs can be handed to them
         self.needs_you: list[NeedsYou] = []  # left for you outside a job's own result (e.g. inbox messages)
+        self.followups: list[Followup] = []  # open follow-ups, given by the runner before after_jobs
+        # (site_job_id, status, note, conversation_id) reported back by after_jobs; saved by the runner
+        self.followup_updates: list[tuple[str, str, str, str]] = []
+        # questionnaires already finished (given by the runner) and ones finished this pass (reported back)
+        self.done_questionnaires: set[str] = set()
+        self.questionnaires_done: list[tuple[str, str]] = []  # (questionnaire id, outcome)
 
     @abstractmethod
     async def ensure_logged_in(self) -> bool: ...
@@ -66,7 +73,12 @@ class SiteAdapter(ABC):
         """Optional site work before applying (e.g. reading the inbox)."""
 
     async def after_jobs(self, answerer: Answerer, confirm: ConfirmSubmit) -> None:
-        """Optional site work after applying (e.g. answering recruiter questionnaires)."""
+        """Optional site work after applying (e.g. waiting for follow-ups to arrive)."""
+
+    async def follow_up(self, answerer: Answerer, confirm: ConfirmSubmit) -> None:
+        """FOLLOWUPS sites: check every open follow-up in `self.followups` and the inbox; answer questionnaires,
+        leave other messages for you (`self.needs_you`), report `self.followup_updates`. Called before applying
+        and, if anything was applied, again after."""
 
     async def check_blocked(self) -> None:
         await self._wait_out_challenge()

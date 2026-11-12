@@ -52,3 +52,31 @@ def test_needs_you_list(tmp_path):
     assert set(items) == {"voice recording", 'reply to Recruiter: "are you available Monday?"'}
     assert items["voice recording"].company == "Acme" and items["voice recording"].url.endswith("/j/1")
     db.close()
+
+
+def test_followups_lifecycle(tmp_path):
+    from sortie.db import Database
+    from sortie.models import Job, Status
+    db = Database(tmp_path / "t.db")
+    db.record(Job("cutshort", "j1", "u", "Dev", "Acme"), Status.APPLIED)
+    db.record(Job("cutshort", "j2", "u", "Dev", "Initech"), Status.SKIPPED)
+    assert db.backfill_followups("cutshort") == 1  # only the applied job
+    assert db.backfill_followups("cutshort") == 0  # once
+    db.open_followup("cutshort", "j1", conversation_id="c1")  # fills the missing conversation id
+    [f] = db.open_followups("cutshort")
+    assert (f.site_job_id, f.conversation_id, f.company) == ("j1", "c1", "Acme")
+    db.update_followup("cutshort", "j1", "answered", "questionnaire sent")
+    assert db.open_followups("cutshort") == [] and db.followup_counts("cutshort") == {"answered": 1}
+    db.open_followup("cutshort", "j3")
+    db.conn.execute("UPDATE followups SET created_at = '2026-01-01T00:00:00' WHERE site_job_id = 'j3'")
+    assert db.expire_followups("cutshort") == 1 and db.followup_counts("cutshort")["none"] == 1
+    db.close()
+
+
+def test_done_questionnaires(tmp_path):
+    from sortie.db import Database
+    db = Database(tmp_path / "t.db")
+    db.mark_questionnaire_done("instahyre", "q1", "sent")
+    db.mark_questionnaire_done("instahyre", "q1", "already")  # once
+    assert db.done_questionnaires("instahyre") == {"q1"} and db.done_questionnaires("cutshort") == set()
+    db.close()

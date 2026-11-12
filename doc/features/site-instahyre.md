@@ -45,7 +45,7 @@
 Runs through the site hooks: `before_jobs` scans the inbox, `after_jobs` answers questionnaires once the applications are done. Verified states 2026-11-05: open, already sent, closed/redirect.
 
 **Scan (start of the Instahyre run)**
-- `GET /api/v1/inbox_page/candidate_conversation?limit=10&offset=0`: the **last 10 conversations**, read or unread.
+- `GET /api/v1/inbox_page/candidate_conversation?limit=20&offset=<n>`, paged: every conversation from the **last 14 days**, read or unread, however many. No cap on the count; only a 200-page safety stop, and 10 pages if conversations carry no readable date. It stops at the first page reaching older ones, or when `meta.next` is empty. It was the last 10 until 2026-11-11; a run with many applications brings more than 10. The date comes from the first date field present (`latest_message_time`, `modified`, …); without one, only the cap applies (field to confirm live).
 - **Pending** = the latest message isn't yours. The preview (`latest_message`) prefixes your own messages with "You:" (e.g. "You: done", "You: I've filled the form"); those are ignored.
 - Pending conversations are classified from the preview, which doesn't mark anything read. Instahyre's questionnaire mails start "Thanks for showing interest in working with <company>. As part of the application process…" (previews are cut off mid-word).
 - Questionnaire → its messages are fetched (`GET /api/v1/resume_modal/emails/message?conv_id=<id>`) to find the link `instahyre.com/questionnaire/<questionnaire id>/<opportunity id>` (newest message wins).
@@ -70,3 +70,14 @@ Dry run on a real questionnaire (12 questions): 7 answered automatically (Java/D
 - Instahyre is behind **Cloudflare**. Repeated headless visits get a "Just a moment… / Performing security verification" page (403).
 - `SiteAdapter.check_blocked` waits up to 20 s for that check to clear (it usually does in a visible browser), then stops the site for the run if it's still there.
 - Run Instahyre visible (default), not `--headless`.
+
+## Follow-ups (2026-11-11)
+- Instahyre tracks follow-ups (`FOLLOWUPS = True`). The runner calls `follow_up` **before applying** and, if anything was applied, again after. This replaces scanning in `before_jobs` and answering in `after_jobs`.
+- The inbox is paged past the 14-day window (up to 10 extra pages) until every tracked application's conversation (`job_id`) has been seen.
+- Outcomes go back to each record:
+  - questionnaire sent / already submitted → `answered`
+  - closed → `none`
+  - couldn't answer or unsupported field → `needs_you` (also on the needs-you list)
+  - a recruiter message → `needs_you`
+- **Finished questionnaires are remembered** (`done_questionnaires` table: questionnaire id + outcome). Submitting a questionnaire adds no chat message from you, so its conversation keeps looking like it awaits your reply. Questionnaires that were sent, found already submitted, or closed are never opened again; the scan only counts them. Their follow-ups close as `answered`. (Before 2026-11-11 every run re-opened them, e.g. 8 already-submitted pages each run.) The log says "questionnaire … found" for new ones, not "pending".
+

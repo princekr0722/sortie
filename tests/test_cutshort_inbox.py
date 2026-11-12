@@ -44,3 +44,86 @@ def test_text_questions_stay_text():
     from sortie.sites.cutshort_inbox import ScreeningQuestion
     q = ScreeningQuestion("What is your current annual CTC and expected CTC?", "text").to_question()
     assert q.kind == QuestionKind.TEXT
+
+
+async def test_scan_pages_until_older_than_14_days():
+    from datetime import datetime, timedelta, timezone
+    from sortie.sites.cutshort_inbox import CutshortInbox
+
+    def convo(i, days_ago):
+        when = (datetime.now(timezone.utc) - timedelta(days=days_ago)).isoformat().replace("+00:00", "Z")
+        return {"_id": f"c{i}", "lastMsgText": "Hi, are you free tomorrow?", "lastMsgDate": when,
+                "lastMsgSender": {"_id": "recruiter", "name": "R"}, "jobSignal": {"headline": "Dev"},
+                "companyDetails": {"name": "Acme"}}
+
+    pages = {1: [convo(i, 1) for i in range(8)], 2: [convo(8 + i, d) for i, d in enumerate([2, 3, 20, 25])],
+             3: [convo(20, 30)]}
+    asked = []
+
+    class Response:
+        def __init__(self, body): self.body, self.ok, self.status = body, True, 200
+        async def json(self): return self.body
+
+    class Request:
+        async def get(self, url):
+            if "auth/user" in url:
+                return Response({"_id": "me"})
+            n = int(url.rsplit("page=", 1)[1]); asked.append(n)
+            return Response({"results": pages.get(n, []), "totalPages": 3})
+
+    class Page:
+        request = Request()
+
+    inbox = CutshortInbox(Page(), [])
+    await inbox.scan()
+    assert asked == [1, 2]  # page 2 reached conversations older than 14 days, so page 3 is never read
+    assert len(inbox.needs_you) == 10  # the 10 recent ones (8 + 2), each left for you
+
+
+async def test_follow_up_checks_each_tracked_application():
+    from sortie.models import Followup
+    from sortie.sites.cutshort_inbox import CutshortInbox
+
+    def thread(messages):
+        return {"thread": {"messages": messages}}
+
+    threads = {
+        "c-done": thread([{"questions": [_q("Notice?", options=["30 days"])], "screeningSubmitted": True}]),
+        "c-msg": thread([{"message": "Are you free for a call tomorrow?", "sender": {"_id": "rec", "name": "Asha"}}]),
+        "c-q": thread([{"questions": [_q("Notice?", options=["30 days"])], "screeningSubmitted": False,
+                        "sender": {"_id": "rec", "name": "Ravi"}}]),
+    }
+    listing = {"results": [{"_id": "c-q", "jobSignal": {"_id": "j3"}}], "totalPages": 1}
+
+    class Response:
+        def __init__(self, body): self.body, self.ok, self.status = body, True, 200
+        async def json(self): return self.body
+
+    class Request:
+        async def get(self, url):
+            if "auth/user" in url:
+                return Response({"_id": "me"})
+            if "loadthread-v2/" in url:
+                return Response(threads[url.rsplit("/", 1)[1]])
+            return Response(listing if url.endswith("page=1") else {"results": []})
+
+    class Page:
+        request = Request()
+
+    inbox = CutshortInbox(Page(), [])
+    answered = []
+
+    async def fake_answer(qn, answerer, confirm, debug_dump):
+        answered.append(qn.conversation_id)
+        return "sent"
+    inbox._answer = fake_answer
+    followups = [Followup("cutshort", "j1", "Dev", "Acme", "c-done"), Followup("cutshort", "j2", "Dev", "Initech", "c-msg"),
+                 Followup("cutshort", "j3", "Dev", "Globex", ""),  # conversation id found through the listing
+                 Followup("cutshort", "j4", "Dev", "Umbrella", "")]  # no conversation yet
+    updates = []
+    await inbox.follow_up(followups, updates, answerer=None, confirm=None, debug_dump=None)
+    assert answered == ["c-q"]
+    assert sorted(updates) == [("j1", "answered", "questionnaire already submitted", "c-done"),
+                               ("j2", "needs_you", "recruiter message left for you", "c-msg"),
+                               ("j3", "answered", "questionnaire sent", "c-q")]
+    assert [n.what for n in inbox.needs_you] == ['reply to Asha: "Are you free for a call tomorrow?"']

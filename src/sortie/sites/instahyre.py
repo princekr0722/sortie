@@ -79,6 +79,7 @@ def api_to_job(item: dict) -> Job:
 
 class InstahyreAdapter(SiteAdapter):
     name = "instahyre"
+    FOLLOWUPS = True  # recruiters send questionnaires to the inbox after you apply
     login_url = f"{BASE}/login/"
 
     def __init__(self, page):
@@ -86,11 +87,10 @@ class InstahyreAdapter(SiteAdapter):
         self.external: dict[str, str] = {}  # job id -> company-site apply URL ("sourced" jobs)
         self.inbox = InstahyreInbox(page, self.needs_you)
 
-    async def before_jobs(self) -> None:
-        await self.inbox.scan()
-
-    async def after_jobs(self, answerer: Answerer, confirm: ConfirmSubmit) -> None:
-        await self.inbox.answer_all(answerer, confirm, self.debug_dump)
+    async def follow_up(self, answerer: Answerer, confirm: ConfirmSubmit) -> None:
+        self.inbox.page = self.page
+        self.inbox.done, self.inbox.newly_done = self.done_questionnaires, self.questionnaires_done
+        await self.inbox.follow_up(self.followups, self.followup_updates, answerer, confirm, self.debug_dump)
 
     async def ensure_logged_in(self) -> bool:
         await self.page.goto(f"{BASE}/candidate/opportunities/", wait_until="domcontentloaded")

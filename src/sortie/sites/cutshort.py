@@ -183,6 +183,7 @@ def data_to_job(item: dict) -> Job | None:
 class CutshortAdapter(SiteAdapter):
     name = "cutshort"
     login_url = BASE
+    FOLLOWUPS = True  # recruiters send a screening questionnaire after you apply
 
     def __init__(self, page):
         super().__init__(page)
@@ -190,18 +191,16 @@ class CutshortAdapter(SiteAdapter):
         self.inbox = CutshortInbox(page, self.needs_you)
         self.last_applied = 0.0  # monotonic time of the last application this run
 
-    async def before_jobs(self) -> None:
-        await self.inbox.scan()
-
     async def after_jobs(self, answerer: Answerer, confirm: ConfirmSubmit) -> None:
-        """CutShort sends its screening questionnaire shortly after you apply: give the newest application a
-        minute, then read the inbox again and answer what's pending."""
+        """CutShort sends its questionnaire shortly after you apply: give the newest application a minute before
+        the runner's second follow-up pass."""
         if self.last_applied and (wait := QUESTIONNAIRE_DELAY_S - (time.monotonic() - self.last_applied)) > 0:
-            log.info(f"  waiting {wait:.0f} s for questionnaires on today's applications", extra={"detail": True})
+            log.info(f"  waiting {wait:.0f} s for questionnaires on this run's applications", extra={"detail": True})
             await self.page.wait_for_timeout(wait * 1000)
+
+    async def follow_up(self, answerer: Answerer, confirm: ConfirmSubmit) -> None:
         self.inbox.page = self.page
-        await self.inbox.scan()
-        await self.inbox.answer_all(answerer, confirm, self.debug_dump)
+        await self.inbox.follow_up(self.followups, self.followup_updates, answerer, confirm, self.debug_dump)
 
     async def ensure_logged_in(self) -> bool:
         await self.page.goto(BASE, wait_until="domcontentloaded")
@@ -419,7 +418,11 @@ class CutshortAdapter(SiteAdapter):
             try:
                 if card is not None and await card.count() and \
                         APPLIED_STATE.fullmatch((await card.first.inner_text()).strip()):
-                    return ApplyResult(Status.APPLIED, answers=answers, screenshot_path=await self.screenshot("applied"))
+                    # "View conversation" links to the thread (…&thread=<id>&…): kept for the follow-up
+                    href = await card.first.get_attribute("href") or ""
+                    thread = re.search(r"[?&]thread=([0-9a-f]+)", href)
+                    return ApplyResult(Status.APPLIED, answers=answers, screenshot_path=await self.screenshot("applied"),
+                                       conversation_id=thread.group(1) if thread else "")
                 if SUCCESS_TEXT.search(await self.page.locator("body").inner_text()):
                     return ApplyResult(Status.APPLIED, answers=answers, screenshot_path=await self.screenshot("applied"))
             except PlaywrightError:

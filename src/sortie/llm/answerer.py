@@ -273,7 +273,8 @@ def profile_answer(profile: Profile, q: Question, job: Job,
     if "serving" in ql and not re.search(r"\bif (you are |you're |currently )?serving\b", ql) and _is_yes_no(q):
         return _yes_no(profile.serving_notice, q)
 
-    if re.search(r"notice period|how soon can you join|joining time|when can you (join|start)", ql):
+    if re.search(r"notice period|how soon can (you|we expect you to) join|joining time|when can you (join|start)"
+                 r"|how soon (could|would) you (join|start)|earliest (joining|start) date", ql):
         days = profile.days_to_join(today)
         if lwd and q.kind == QuestionKind.TEXT:  # "notice period? mention LWD if serving"
             return Answer(f"Serving notice, last working day {lwd:%d %b %Y}", "profile")

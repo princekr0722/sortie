@@ -13,13 +13,15 @@ from playwright.async_api import Page
 
 from sortie.llm.answerer import Answerer, question_kind
 from sortie.log import log
-from sortie.models import Job, NeedsYou, Question, QuestionKind
+from sortie.models import Followup, Job, NeedsYou, Question, QuestionKind
 from sortie.sites.base import ConfirmSubmit
 
 BASE = "https://cutshort.io"
-CONVERSATIONS = f"{BASE}/conversations-v2/candidate?page=1&user_role=candidate&convo_status=awaiting"
-RECENT_CONVERSATIONS = 15
+CONVERSATIONS = f"{BASE}/conversations-v2/candidate?user_role=candidate&convo_status=awaiting&page="
+# every conversation awaiting your reply from the last MAX_AGE_DAYS (newest first, 8 per page), however many there
+# are (page 1 alone held only the newest 8). SAFETY_PAGES only guards against a paging loop that never ends.
 MAX_AGE_DAYS = 14
+SAFETY_PAGES = 200
 QUESTIONNAIRE = "[Questionnaire]"  # lastMsgText of a screening message
 SUPPORTED = {"mcq", "text", "number", "multi", "mcq_multi"}  # anything else (audio, video, file) needs you
 
@@ -102,19 +104,108 @@ class CutshortInbox:
         self.questionnaires: list[Questionnaire] = []
         self.me = ""
 
-    async def scan(self) -> None:
-        """Conversations awaiting your reply: queue unsubmitted questionnaires, leave everything else for you."""
-        self.questionnaires.clear()
+    async def _whoami(self) -> None:
         if not self.me:
             user = await self.page.request.get(f"{BASE}/api/auth/user")
             self.me = (await user.json()).get("_id", "") if user.ok else ""
-        response = await self.page.request.get(CONVERSATIONS)
-        if not response.ok:
-            log.warning(f"cutshort inbox unavailable ({response.status})")
-            return
-        conversations = [c for c in (await response.json()).get("results", [])[:RECENT_CONVERSATIONS]
-                         if is_recent(c) and (c.get("lastMsgSender") or {}).get("_id") != self.me]
-        log.info(f"  inbox: {len(conversations)} recent conversations await your reply", extra={"detail": True})
+
+    async def _thread(self, conversation_id: str) -> dict:
+        response = await self.page.request.get(f"{BASE}/loadthread-v2/{conversation_id}")
+        if response.status >= 500:
+            raise ServerDown(f"HTTP {response.status}")
+        return await response.json() if response.ok else {}
+
+    async def _find_conversations(self, job_ids: set[str]) -> dict[str, str]:
+        """job id -> conversation id, paging the awaiting list (newest first) until all are found or it ends."""
+        found: dict[str, str] = {}
+        for page_number in range(1, SAFETY_PAGES + 1):
+            response = await self.page.request.get(f"{CONVERSATIONS}{page_number}")
+            if not response.ok:
+                break
+            data = await response.json()
+            for c in data.get("results", []):
+                job_id = str((c.get("jobSignal") or {}).get("_id") or "")
+                if job_id in job_ids:
+                    found.setdefault(job_id, c["_id"])
+            if len(found) == len(job_ids) or page_number >= (data.get("totalPages") or page_number):
+                break
+        return found
+
+    async def follow_up(self, followups: list[Followup], updates: list, answerer: Answerer,
+                        confirm: ConfirmSubmit, debug_dump) -> None:
+        """Every application Sortie is tracking: open its conversation directly and handle it, so none is missed
+        however many arrive at once. Then the inbox, for conversations Sortie didn't start."""
+        await self._whoami()
+        handled: set[str] = set()
+        try:
+            missing = {f.site_job_id for f in followups if not f.conversation_id}
+            ids = await self._find_conversations(missing) if missing else {}
+            for f in followups:
+                cid = f.conversation_id or ids.get(f.site_job_id, "")
+                if not cid:
+                    continue  # no conversation yet (or not awaiting you): stays open until it shows up or expires
+                handled.add(cid)
+                try:
+                    status, note = await self._handle_thread(f, cid, await self._thread(cid), answerer, confirm,
+                                                            debug_dump)
+                except PlaywrightError as e:  # this one stays open; carry on with the rest
+                    log.warning(f"  follow-up for {f.title} @ {f.company} failed: {str(e).splitlines()[0][:120]}")
+                    await debug_dump("followup-error")
+                    status, note = "open", ""
+                if status != "open" or cid != f.conversation_id:
+                    updates.append((f.site_job_id, status, note, cid))
+            await self.scan(skip=handled)
+            await self.answer_all(answerer, confirm, debug_dump)
+        except ServerDown as e:
+            log.warning(f"  CutShort is having server trouble ({e}); follow-ups stay open for the next run")
+
+    async def _handle_thread(self, f: Followup, cid: str, thread: dict, answerer: Answerer, confirm: ConfirmSubmit,
+                             debug_dump) -> tuple[str, str]:
+        """(status, note) for a tracked application's conversation."""
+        if submitted(thread):
+            return "answered", "questionnaire already submitted"
+        job = Job(site="cutshort", site_job_id=f.site_job_id, url="", title=f.title, company=f.company)
+        messages = (thread.get("thread") or {}).get("messages") or []
+        if questions := pending_questionnaire(thread):
+            recruiter = next(((m.get("sender") or {}).get("name") for m in reversed(messages)
+                              if (m.get("sender") or {}).get("name")), "recruiter")
+            outcome = await self._answer(Questionnaire(cid, job, recruiter, questions), answerer, confirm, debug_dump)
+            return {"sent": ("answered", "questionnaire sent"),
+                    "needs_you": ("needs_you", "questionnaire left for you")}.get(outcome, ("open", outcome))
+        last = messages[-1] if messages else {}
+        if last and (last.get("sender") or {}).get("_id") not in ("", None, self.me):
+            preview = " ".join((last.get("message") or "").split())[:120]
+            who = (last.get("sender") or {}).get("name") or "recruiter"
+            log.info(f"  💬 message from {who} ({f.title} @ {f.company}): \"{preview}\" (left for you)",
+                     extra={"detail": True})
+            self.needs_you.append(NeedsYou("cutshort", f"reply to {who}: \"{preview[:80]}\"", f.title, f.company,
+                                           thread_url(cid)))
+            return "needs_you", "recruiter message left for you"
+        return "open", ""
+
+    async def scan(self, skip: set[str] = frozenset()) -> None:
+        """Conversations awaiting your reply: queue unsubmitted questionnaires, leave everything else for you.
+        `skip`: conversations already handled through follow-ups."""
+        self.questionnaires.clear()
+        await self._whoami()
+        recent: list[dict] = []
+        for page_number in range(1, SAFETY_PAGES + 1):
+            if page_number == SAFETY_PAGES:
+                log.warning(f"  cutshort inbox: stopped at the {SAFETY_PAGES}-page safety limit")
+            response = await self.page.request.get(f"{CONVERSATIONS}{page_number}")
+            if not response.ok:
+                log.warning(f"cutshort inbox unavailable ({response.status})")
+                break
+            data = await response.json()
+            page_items = data.get("results", [])
+            recent += [c for c in page_items if is_recent(c)]
+            if (not page_items or not is_recent(page_items[-1])
+                    or page_number >= (data.get("totalPages") or page_number)):
+                break  # newest first: once a page reaches older conversations, the rest are older too
+        conversations = [c for c in recent
+                         if (c.get("lastMsgSender") or {}).get("_id") != self.me and c["_id"] not in skip]
+        log.info(f"  inbox: {len(conversations)} conversations from the last {MAX_AGE_DAYS} days await your reply",
+                 extra={"detail": True})
         for conversation in conversations:
             job = conversation_job(conversation)
             recruiter = (conversation.get("lastMsgSender") or {}).get("name") or "recruiter"
@@ -144,14 +235,15 @@ class CutshortInbox:
                 log.warning(f"  questionnaire for {questionnaire.job.title} failed: {str(e).splitlines()[0][:120]}")
                 await debug_dump("questionnaire-error")
 
-    async def _answer(self, qn: Questionnaire, answerer: Answerer, confirm: ConfirmSubmit, debug_dump) -> None:
+    async def _answer(self, qn: Questionnaire, answerer: Answerer, confirm: ConfirmSubmit, debug_dump) -> str:
+        """"sent", "needs_you", "not_sent" (declined / dry run) or "failed"."""
         job, label = qn.job, f"{qn.job.title} @ {qn.job.company}"
         blocking = [q for q in qn.questions if not q.supported and q.mandatory]
         if blocking:
             what = f"questionnaire with a {blocking[0].response_type} question"
             log.info(f"  🎙  {label}: {what}; left for you", extra={"detail": True})
             self.needs_you.append(NeedsYou("cutshort", what, job.title, job.company, thread_url(qn.conversation_id)))
-            return
+            return "needs_you"
 
         answers = {}
         for sq in qn.questions:
@@ -165,7 +257,7 @@ class CutshortInbox:
                              extra={"detail": True})
                     self.needs_you.append(NeedsYou("cutshort", f"questionnaire: \"{sq.title[:60]}\"", job.title,
                                                    job.company, thread_url(qn.conversation_id)))
-                    return
+                    return "needs_you"
                 continue
             answers[sq.title] = answer
 
@@ -190,7 +282,7 @@ class CutshortInbox:
 
         if not await confirm(job, answers):
             log.info(f"  📝 {label}: questionnaire not sent", extra={"detail": True})
-            return
+            return "not_sent"
         await form.first.locator("button[type=submit]").click()
         # CutShort then asks "Responses cannot be changed after submission. Are you sure?" [Yes] [No] inside the
         # same form, and Yes is the new submit button (verified 2026-11-10); the answers were already confirmed above
@@ -206,6 +298,7 @@ class CutshortInbox:
                 for title, answer in answers.items():
                     value = ", ".join(answer.value) if isinstance(answer.value, list) else answer.value
                     log.info(f"        Q: {title} → {value} ({answer.source})", extra={"detail": True})
-                return
+                return "sent"
         log.warning(f"  questionnaire for {label} may not have been sent; check {thread_url(qn.conversation_id)}")
         await debug_dump("questionnaire-unconfirmed")
+        return "failed"
