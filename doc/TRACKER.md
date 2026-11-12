@@ -29,6 +29,8 @@ _Last updated: 2026-11-10_
 | 1.11d | Conversation follow-ups: answer [Questionnaire] forms (JSON read, form filled in page, confirmed via `screeningSubmitted`), other messages → needs-you | [cutshort](features/site-cutshort.md) | ✅ Verified live | 8 questionnaires sent 2026-11-10 |
 | 1.21 | Follow-up tracking: every application on Instahyre/CutShort tracked until its questionnaire is handled, checked before and after applying; backfill of the last 14 days | [tracking](features/tracking-db.md) | ✅ | Live dry run: 31 missed CutShort questionnaires found |
 | 1.22 | Free-text answers always written by the LLM ("what interests you about this company?", why this role, tell us about yourself, notes): writer prompt tying your background to the job and company; long plain-text replies kept whole | [llm](features/llm-matching-and-answers.md) | ✅ | 2026-11-12, after a recruiter's question reached the user |
+| 1.23 | Work-authorization answers: a country the question names that isn't in `work_authorization` → not authorized (US visa types name the US); authorization wording checked before sponsorship | [profile](features/profile-and-durations.md) | ✅ | 2026-11-12, caught before any form was sent |
+| 1.24 | Form filler: react-select dropdowns (read options, choose, close by blur), loose radio groups, disabled groups skipped, rejected phone retyped with the country code | [llm](features/llm-matching-and-answers.md), [wellfound](features/site-wellfound.md) | ✅ | 2026-11-12 |
 | 1.20 | Needs-you list (all sites): what Sortie left for you, with links, in `sortie report` | [cutshort](features/site-cutshort.md) | ✅ | Instahyre inbox messages included |
 | 1.12 | First live run (review mode, cap 3/site) | — | ✅ | Naukri, Instahyre, CutShort all live |
 | 1.13 | Answer book: `config/answers.yaml`, reused for reworded questions via LLM | [llm](features/llm-matching-and-answers.md) | ✅ | |
@@ -41,7 +43,7 @@ _Last updated: 2026-11-10_
 | # | Task | Status |
 |---|---|---|
 | 2.1 | LinkedIn Easy Apply adapter | ⬜ |
-| 2.3 | Wellfound adapter: search (Apollo data, role/city + remote pages, paging), apply with a job-specific note | ✅ Regular site since 2026-11-12: verified live (20 applications over 5 runs); external jobs, the Applied list and unknown role names handled |
+| 2.3 | Wellfound adapter: search (Apollo data, role/city + remote pages, paging), apply with a job-specific note | ✅ Regular site since 2026-11-12: verified live (20 applications over 5 runs); external jobs, the Applied list and unknown role names handled; location-blocked jobs (both wordings) skipped |
 | 2.2 | Indeed adapter: search (embedded JSON, per-country sites), job page, external detection | ⏸ **Disabled** 2026-11-09 (built, merged; see 2.2d) |
 | 2.2a | Generic form filler (`sites/forms.py`): text, number, date, select, radio, checkbox, consent; choices verified to stick | ✅ Built, merged (used by Indeed; reusable for phase 3) |
 | 2.2b | Live Indeed runs: map the smartapply steps (contact, resume, questions, consent, review, intervention) | ✅ Done 2026-11-07, about 10 applications sent |
