@@ -13,7 +13,7 @@ try:
 except ImportError:  # Windows
     pass
 
-from sortie.llm.answerer import pick_option
+from sortie.llm.answerer import LET_AI, pick_option
 from sortie.models import Answer, Job, Question
 
 # arrow keys / other escape sequences that still slip into a reply
@@ -34,13 +34,15 @@ async def ask_user(q: Question, job: Job, suggestion: Answer | None) -> str | No
         print(f"     {i}. {option}")
     hint = f" [Enter = {suggestion.value}]" if suggestion else ""
     while True:
-        reply = await prompt(f"  Answer{hint} (option number, text, or 's' to skip job): ")
+        reply = await prompt(f"  Answer{hint} (option number, text, 'a' = let the AI answer, or 's' to skip job): ")
         if reply.lower() == "s":
             return None
+        if reply.lower() == "a":
+            return LET_AI
         if not reply:
             if suggestion:
                 return str(suggestion.value)
-            print("    (type an answer, or 's' to skip this job)")
+            print("    (type an answer, 'a' to let the AI answer, or 's' to skip this job)")
             continue
         if not q.options:
             return reply

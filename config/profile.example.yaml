@@ -30,3 +30,8 @@ skills_since:
   Python: null
 
 resume_pdf: resumes/resume.pdf   # put your resume PDF here
+
+gender:                   # optional, e.g. Male / Female / Non-binary; left empty, you're asked (the AI never answers it)
+languages:                # optional: how well you read, write and speak each one, 1-5
+  English: {read: 5, write: 4, speak: 4}
+  Tamil: {read: 3, write: 2, speak: 5}

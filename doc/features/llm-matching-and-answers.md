@@ -59,7 +59,8 @@ Resolution order for each question:
   - Every reply is used whatever its confidence, including a long plain-text reply. Another try follows if a reply is unusable.
   - You're asked only if there's no LLM or both tries fail.
   - These answers skip answers.yaml in both directions: a good one names this company, so it's neither reused nor saved.
-  - `is_open_ended()` decides which questions count. A text question matching words like why / interest / motivat / tell us / describe / good fit counts. Logistics wordings don't count (relocation, shifts, office, notice, joining dates, links/URLs), nor yes/no forms ("Are you interested in relocating?"), nor sensitive topics such as salary.
+  - Experience stories count too (2026-11-12): "Tell me about a time you…", "Walk me through the hardest bug…", "Give an example…". The writer tells one concrete situation from your resume or notes (what happened, what you did or asked, how it ended) in 3–5 sentences, without employers, tools or numbers they don't support.
+  - `is_open_ended()` decides which questions count. A text question matching words like why / interest / motivat / tell us / tell me / a time you / walk me through / hardest / challenge / describe / good fit counts. Logistics wordings don't count (relocation, shifts, office, notice, joining dates, links/URLs), nor yes/no forms ("Are you interested in relocating?"), nor sensitive topics such as salary.
 - Plain-text replies: the client keeps the whole reply (`NotJSON.reply`). It used to be cut at 200 characters, which silently dropped long answers and sent the question to you. JSON with a broken escape is handled the same way, so the parser's error text is never typed into a form.
 - `<!-- comments -->` are dropped, the text is capped at 8,000 characters, and an **unedited copy of the template is ignored** (its sample projects aren't yours).
 
@@ -70,6 +71,10 @@ Resolution order for each question:
 - LLM answers are typed into forms verbatim, so the prompt demands short, form-ready answers with no explanations; conditional questions that don't apply get "Not applicable".
 - Choice answers must map to one of the offered options, otherwise the question goes to you.
 - With no terminal attached (no `ask_user`), an unanswerable question skips the job.
+- **`a` = let the AI answer** (2026-11-12): any question that comes to you can be handed back by typing `a` at the prompt. Sortie shows the AI's answer in the log and uses it.
+  - Any topic and any confidence, sensitive ones included, because you chose to (`Answerer.ai_answer`).
+  - The LLM's earlier suggestion is used if there was one. Otherwise long text questions go to the writer prompt, and everything else to the normal prompt with your resume.
+  - Never saved to answers.yaml, like every LLM answer. If the AI gives nothing usable, you're asked again.
 
 ## Lessons (2026-11-07, Indeed run)
 | Issue | Fix |

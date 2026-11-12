@@ -409,3 +409,57 @@ async def test_open_ended_questions_are_written_by_the_llm(profile, tmp_path):
     assert not is_open_ended(Question("Are you interested in relocating to Jaipur?", K.TEXT))
     assert not is_open_ended(Question("What interests you?", K.CHOICE, ["Backend", "Frontend"]))
     assert not is_open_ended(Question("Why is your expected CTC higher?", K.TEXT))
+
+
+def test_gender_and_languages(profile):
+    from sortie.config import LanguageLevel
+    assert ans(profile, "Gender", K.CHOICE, ["Male", "Female", "Other"]) is None  # unset: not answered
+    p = profile.model_copy(update={"gender": "Male", "languages": {
+        "English": LanguageLevel(read=5, write=4, speak=4), "Spanish": LanguageLevel(read=3, write=2, speak=3)}})
+    assert ans(p, "Gender", K.CHOICE, ["Female (she/her)", "Male (he/him)"]) == "Male (he/him)"
+    assert ans(p, "What is your gender?") == "Male"
+    q = ("Language Proficiency - Mention the languages which you can read, write or speak on scale of 5. "
+         "E.g. English: Read (4/5), Write (4/5), Speak (3/5)")
+    assert ans(p, q) == ("English: Read (5/5), Write (4/5), Speak (4/5); "
+                         "Spanish: Read (3/5), Write (2/5), Speak (3/5)")
+    assert ans(p, "Rate your language proficiency out of 10").startswith("English: Read (10/10)")
+    assert ans(p, "Languages known") == "English, Spanish"
+    assert ans(p, "Are you fluent in Spanish?", K.CHOICE, ["Yes", "No"]) == "Yes"
+    assert ans(p, "Can you speak Japanese?", K.CHOICE, ["Yes", "No"]) is None  # not listed: left to the LLM
+
+
+def test_contact_fields_are_labels_not_words_in_a_sentence(profile):
+    for label in ["Phone", "Phone *", "Mobile Number", "Contact no.", "WhatsApp number", "Phone number (with country code)"]:
+        assert ans(profile, label) == profile.phone, label
+    for label in ["Email", "Email Address", "Your email"]:
+        assert ans(profile, label) == profile.email, label
+    assert ans(profile, "One mobile product interaction you love, and why.") is None
+    assert ans(profile, "Describe an email you sent that changed a decision") is None
+
+
+async def test_let_the_ai_answer_any_question(profile, tmp_path):
+    from sortie.llm.answerer import LET_AI, is_open_ended
+    book = AnswerBook(tmp_path / "answers.yaml")
+
+    async def hand_over(q, job, suggestion):
+        return LET_AI
+
+    # sensitive questions too, since you asked for it; and nothing is saved to answers.yaml
+    a = Answerer(profile, book, FakeLLM({"answer": "Prefer not to say", "confidence": 0.2}), hand_over)
+    got = await a.answer(Question("What is your caste category?", K.CHOICE, ["General", "Prefer not to say"]), JOB)
+    assert (got.value, got.source) == ("Prefer not to say", "llm") and not book.entries
+
+    story = "Before building the export feature I noticed the spec never said what happens to deleted rows, so I asked."
+    a = Answerer(profile, book, FakeLLM({"answer": story, "confidence": 0.9}), hand_over)
+    assert (await a.answer(Question("Why did you leave your last job? Please explain in detail what led to it"), JOB)).value == story
+
+    # no usable AI answer: you're asked again
+    replies = iter([LET_AI, "typed by me"])
+
+    async def then_type(q, job, suggestion):
+        return next(replies)
+    a = Answerer(profile, book, FakeLLM({"answer": "", "confidence": 0}), then_type)
+    assert (await a.answer(Question("Preferred work timings"), JOB)).value == "typed by me"
+
+    assert is_open_ended(Question("Tell me about a time you spotted a missing requirement before you started building. What did you ask?"))
+    assert is_open_ended(Question("Walk me through the hardest bug you have root-caused."))

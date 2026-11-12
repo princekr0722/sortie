@@ -44,7 +44,7 @@ Sortie finds jobs on Indian job portals, scores them against the user's resume, 
 - Experience is computed at runtime from dates (`career_start`, `skills_since`), never stored as numbers.
   - A skill **in** the profile → from its date.
   - A skill **not** in the profile → the LLM infers it from the resume and related skills, accepted at confidence ≥ 0.3 and capped at total experience.
-- Salary, CTC, visa, authorization, criminal, disability, gender, caste, religion and legal questions are never answered by the LLM, unless it's reusing an answer the user gave themselves.
+- Salary, CTC, visa, authorization, criminal, disability, gender, caste, religion and legal questions are never answered by the LLM, unless it's reusing an answer the user gave themselves, or the user hands that question to it with `a` at the prompt.
 - LLM answers are typed into forms as-is: short and form-ready, never explanations. Conditional questions that don't apply get "Not applicable". LLM answers are never saved to `answers.yaml`; only the user's are.
 
 ## Site adapters

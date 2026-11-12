@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 
 from playwright.async_api import Frame, Locator, Page
 
-from sortie.llm.answerer import Answerer, date_format, question_kind
+from sortie.llm.answerer import PHONE_QUESTION, Answerer, date_format, question_kind
 from sortie.log import log
 from sortie.models import Answer, Job, Question, QuestionKind
 
@@ -74,7 +74,7 @@ FIELDS_JS = """root => {
     const groupKey = key(box || inputs[0]);
     inputs.forEach((input, i) => { input.dataset.sortieOpt = groupKey + '-' + i; });
     fields.push({key: groupKey, kind: 'radio', label, options: inputs.map(labelOf),
-                 filled: inputs.some(i => i.checked), required: inputs.some(required) || /\*\s*$/.test(label)});
+                 filled: inputs.some(i => i.checked), required: inputs.some(required) || /\\*\\s*$/.test(label)});
   }
   for (const el of root.querySelectorAll('input, textarea, select')) {
     if (grouped.has(el) || !visible(el) || el.disabled || el.readOnly) continue;
@@ -90,7 +90,7 @@ FIELDS_JS = """root => {
       const control = el.closest('[class*=control]') || el.parentElement;
       const chosen = control.querySelector('[class*=singleValue], [class*=single-value], [class*=multiValue], [class*=multi-value]');
       fields.push({key: key(el), kind: 'combobox', label, options: [], filled: !!(chosen && clean(chosen.innerText)),
-                   required: required(el) || /\*\s*$/.test(label), placeholder: ''});
+                   required: required(el) || /\\*\\s*$/.test(label), placeholder: ''});
       continue;
     }
     fields.push({key: key(el), kind: type || 'text', label, options, filled: el.value.trim() !== '',
@@ -250,7 +250,6 @@ async def _select_option(scope: Scope, f: Field, item: str) -> None:
     raise RuntimeError(f"couldn't select {item!r} for {f.label[:60]!r}")
 
 
-PHONE_LABEL = re.compile(r"phone|mobile|contact (number|no)", re.I)
 FIELD_ERROR_JS = """(root, key) => {
   const el = root.querySelector(`[data-sortie-key='${key}']`);
   const box = el && (el.closest('label') || el.parentElement && el.parentElement.parentElement);
@@ -273,7 +272,7 @@ async def fix_rejected_phone(scope: Scope, answers: dict[str, Answer]) -> str | 
     """If the form flags a phone number we typed as invalid, retype it in other formats; if none is accepted and
     the field is optional, leave it empty. Returns None when the form is fine now, else a reason."""
     for f in await read_fields(scope):
-        if f.kind not in ("text", "tel") or not PHONE_LABEL.search(f.label):
+        if f.kind not in ("text", "tel") or not PHONE_QUESTION.search(f.label.strip()):
             continue
         box = scope.locator(f"[data-sortie-key='{f.key}']").first
         await box.press("Tab")  # many forms validate on blur

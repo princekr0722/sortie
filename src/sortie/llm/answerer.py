@@ -17,8 +17,9 @@ from sortie.llm.matcher import profile_summary, resume_text
 from sortie.log import log
 from sortie.models import Answer, Job, Question, QuestionKind
 
-# (question, job, LLM suggestion) -> typed reply, or None to skip the job
+# (question, job, LLM suggestion) -> typed reply, LET_AI, or None to skip the job
 AskUser = Callable[[Question, Job, Answer | None], Awaitable[str | None]]
+LET_AI = "\x00let the AI answer"  # the reply when you hand a question to the AI ('a' at the prompt)
 
 MIN_LLM_CONFIDENCE = 0.7
 # Experience in a skill missing from the profile: the LLM infers it from related skills / the resume,
@@ -37,11 +38,19 @@ SENSITIVE = re.compile(
 OPEN_ENDED = re.compile(
     r"\b(why|interest(s|ed)?|motivat\w*|excit\w*|attract\w*|draws? you|appeal\w*|passion\w*|tell us|"
     r"describe|about yourself|introduce yourself|cover letter|good fit|right fit|stand out|"
-    r"what (makes|would) you|anything else)\b"
+    r"what (makes|would) you|anything else|tell me|walk (me|us) through|(about|describe) a time|"
+    r"a time (when|you)|give an example|share an example|hardest|biggest|challeng\w*)\b"
 )
 # ...but not yes/no or logistics questions worded with those words ("Are you interested in relocating?")
 NOT_OPEN = re.compile(r"\b(relocat\w*|shifts?|night|onsite|on-site|office|hybrid|travel|contract|notice|joining|join (by|in|within|immediately)|"
                       r"commute|bond|part.time|internship|url|link|github|linkedin|portfolio)\b|^(are|do|did|have|will|would|can|is) you\b")
+
+
+# Contact fields are labels ("Phone", "Mobile number", "Email address"), not sentences that merely use the word:
+# "One mobile product interaction you love, and why." got the phone number (2026-11-12)
+PHONE_QUESTION = re.compile(r"\b(phone|mobile|cell|whatsapp|contact)\s*(number|no\b|#)|"
+                            r"^\W*(your\s+)?(phone|mobile|cell)(\s*(number|no))?\W*$", re.I)
+EMAIL_QUESTION = re.compile(r"\be-?mail\s*(address|id)\b|^\W*(your\s+)?e-?mail(\s*(address|id))?\W*$", re.I)
 
 
 def is_open_ended(q: Question) -> bool:
@@ -73,8 +82,12 @@ For a choice question the answer must be exactly one of the options; for a multi
 "answer" is a list of options."""
 
 WRITE_SYSTEM = """You write the candidate's free-text answers on a job application (a note to the hiring team,
-"what interests you about this company?", "why this role?", "tell us about yourself").
-Write 2-4 first-person sentences that connect the candidate's real background (resume and notes) to this job
+"what interests you about this company?", "why this role?", "tell us about yourself") and experience questions
+("tell me about a time you…", "walk me through the hardest bug you've fixed").
+For "a time you…" questions, tell one concrete situation from the candidate's work in the resume or notes: what
+the situation was, what they did or asked, and how it ended, in 3-5 first-person sentences. Specifics that
+naturally follow from that work are fine, but no employers, tools or numbers the resume and notes don't support.
+Otherwise write 2-4 first-person sentences that connect the candidate's real background (resume and notes) to this job
 and this company: name the company, say what about its product, domain or the role's work appeals, and which of
 the candidate's experience fits it. Take what the company does from the job description.
 Use only facts from the resume, notes and job description; never invent experience, numbers or employers.
@@ -372,6 +385,17 @@ def profile_answer(profile: Profile, q: Question, job: Job,
     if "relocat" in ql:
         return _yes_no(profile.willing_to_relocate, q)
 
+    if re.search(r"\b(gender|sex)\b", ql) and profile.gender:
+        if not q.options:
+            return Answer(profile.gender, "profile")
+        g = re.escape(profile.gender.strip().lower())
+        # whole word, so "Male" never picks "Female"
+        value = next((o for o in q.options if re.search(rf"(?<![a-z]){g}(?![a-z])", o.lower())), None)
+        return Answer(value, "profile") if value else ASK_USER
+
+    if profile.languages and (a := _language_answer(profile, q, ql)):
+        return a
+
     # "authorized to work in X without sponsorship?" is an authorization question, so it's checked before
     # "will you require sponsorship?"
     if re.search(r"authori[sz]ed to work|eligible to work|right to work|work permit|legally allowed|"
@@ -407,14 +431,34 @@ def profile_answer(profile: Profile, q: Question, job: Job,
             return ASK_USER
         return Answer(profile.education, "profile")
 
-    if re.search(r"e-?mail", ql):
+    if EMAIL_QUESTION.search(ql):
         return Answer(profile.email, "profile")
-    if re.search(r"phone|mobile|contact number", ql):
+    if PHONE_QUESTION.search(ql):
         return Answer(profile.phone, "profile")
     if re.search(r"^(your |full )?name\b", ql):
         return Answer(profile.name, "profile")
 
     return None
+
+
+LANGUAGE_DETAIL = re.compile(r"proficien|fluen|scale|rate|level|\bread|\bwrite|\bspeak")
+
+
+def _language_answer(profile: Profile, q: Question, ql: str) -> Answer | None:
+    """"Languages you read, write or speak (scale of 5)?", "Languages known?", "Can you speak Spanish?"."""
+    named = [n for n in profile.languages if re.search(rf"\b{re.escape(n.lower())}\b", ql)]
+    if _is_yes_no(q):  # "Are you fluent in Spanish?" / "Can you speak English?"
+        if named and re.search(r"speak|fluen|proficien|comfortable|communicat|read|write", ql):
+            return _yes_no(all(profile.languages[n].speak >= 3 for n in named), q)
+        return None
+    if q.kind != QuestionKind.TEXT or not re.search(r"\blanguages?\b", ql):
+        return None
+    if not LANGUAGE_DETAIL.search(ql):
+        return Answer(", ".join(profile.languages), "profile")
+    out_of = 10 if re.search(r"(out of|scale of|/)\s*10\b", ql) else 5
+    k = out_of // 5
+    return Answer("; ".join(f"{n}: Read ({l.read * k}/{out_of}), Write ({l.write * k}/{out_of}), "
+                            f"Speak ({l.speak * k}/{out_of})" for n, l in profile.languages.items()), "profile")
 
 
 class Answerer:
@@ -454,9 +498,9 @@ class Answerer:
 
         if self.ask_user is None:
             return None
-        reply = await self.ask_user(q, job, suggestion)
-        if reply is None:
-            return None
+        reply = await self._ask(q, job, suggestion)
+        if not isinstance(reply, str):
+            return reply  # the AI's answer, or None
         raw = [p.strip() for p in reply.split(",")] if q.kind == QuestionKind.MULTI_CHOICE else reply.strip()
         value = self._fit(raw, q)
         if value is None:
@@ -469,15 +513,47 @@ class Answerer:
         resume, notes and job description, whatever its confidence (a second try if the first reply is unusable).
         You're asked only when no LLM is set up or it fails twice. Profile rules don't apply (they'd answer
         "...your experience..." with a duration), and the text isn't saved to answers.yaml (it's job-specific)."""
+        if written := await self._write(q, job):
+            return written
+        if self.ask_user is None:
+            return None
+        reply = await self._ask(q, job, None)
+        if not isinstance(reply, str):
+            return reply
+        return Answer(reply.strip(), "user") if reply.strip() else None
+
+    async def _write(self, q: Question, job: Job) -> Answer | None:
         if self.llm.enabled:
             for _ in range(2):
                 written, _, _ = await self._ask_llm(q, job, WRITE_SYSTEM)
                 if written and len(str(written.value)) >= 40:
                     return written
-        if self.ask_user is None:
+        return None
+
+    async def _ask(self, q: Question, job: Job, suggestion: Answer | None) -> str | Answer | None:
+        """Your typed reply; or, when you hand the question to the AI ('a'), its answer; None skips the job."""
+        while (reply := await self.ask_user(q, job, suggestion)) == LET_AI:
+            if ai := await self.ai_answer(q, job, suggestion):
+                log.info(f"    AI: {ai.value}")
+                return ai
+            log.info("    The AI couldn't answer this one; type an answer, or 's' to skip the job")
+            suggestion = None
+        return reply
+
+    async def ai_answer(self, q: Question, job: Job, suggestion: Answer | None = None) -> Answer | None:
+        """You asked the AI to answer: any topic and any confidence, since it's your call. Like every LLM answer,
+        it isn't saved to answers.yaml."""
+        if suggestion and suggestion.source == "llm":
+            return suggestion
+        if not self.llm.enabled:
             return None
-        reply = await self.ask_user(q, job, None)
-        return Answer(reply.strip(), "user") if reply and reply.strip() else None
+        if q.kind == QuestionKind.TEXT and (is_open_ended(q) or len(q.text) > 80):
+            return await self._write(q, job)
+        answer, _, _ = await self._ask_llm(q, job, SYSTEM, with_resume=True)
+        if answer is None:
+            return None
+        value = self._fit(answer.value, q)
+        return Answer(value, "llm") if value not in (None, "") else None
 
     def _fit(self, value: str | list[str], q: Question) -> str | list[str] | None:
         if q.kind == QuestionKind.DATE:

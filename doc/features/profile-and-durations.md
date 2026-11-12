@@ -31,6 +31,9 @@ skills_since:                     # skill -> date you started using it (null = n
   Docker: 2023-01-01
   Python: null
 resume_pdf: resumes/resume.pdf
+gender:                           # optional; empty -> you're asked (never the AI)
+languages:                        # optional: read / write / speak, 1-5
+  English: {read: 5, write: 4, speak: 4}
 ```
 
 Longer context (projects, achievements, preferences) goes in `config/about.md`, not here. See [llm-matching-and-answers.md](llm-matching-and-answers.md).
@@ -60,6 +63,12 @@ Longer context (projects, achievements, preferences) goes in `config/about.md`, 
   Sponsorship = "Yes" where you're not authorized. "Authorized to work in X without sponsorship?" is answered as an authorization question.
   Fixed 2026-11-12: "authorized to work in the United States?" used to fall back to the home country and answer Yes. It was caught before any form was sent.
 - Education dropdowns: first option matching `education_aliases`, in order.
+- Phone and email (fixed 2026-11-12): only field labels match ("Phone", "Mobile number", "Contact no.", "Email address"). A sentence that just uses the word ("One mobile product interaction you love, and why") used to get your phone number.
+- Gender (added 2026-11-12): from `gender`, matched as a whole word ("Male" never picks "Female"). Left empty, you're asked; the AI never answers it.
+- Languages (added 2026-11-12), from `languages`:
+  - "Mention the languages you can read, write or speak on a scale of 5" → `English: Read (5/5), Write (4/5), Speak (4/5); Spanish: …` (a "out of 10" question gets doubled numbers);
+  - "Languages known" → `English, Spanish`;
+  - "Are you fluent in / can you speak Spanish?" (Yes/No) → Yes when that language's `speak` is 3 or more. A language you haven't listed goes to the LLM.
 - Missing `resume_pdf`: a warning, and the LLM works from the profile alone.
 
 ## Notice status

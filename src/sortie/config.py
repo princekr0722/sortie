@@ -60,6 +60,13 @@ class ExpectedCtc(BaseModel):
     single_value: float
 
 
+class LanguageLevel(BaseModel):
+    """How well you read, write and speak a language, 1-5."""
+    read: int = Field(ge=1, le=5)
+    write: int = Field(ge=1, le=5)
+    speak: int = Field(ge=1, le=5)
+
+
 class Profile(BaseModel):
     name: str
     email: str
@@ -81,6 +88,8 @@ class Profile(BaseModel):
     home_country: str = "India"  # used for work-authorization questions when the job doesn't name a country
     skills_since: dict[str, date | None]
     resume_pdf: Path
+    gender: str | None = None  # answers "Gender" questions; unset -> you're asked (the AI never answers it)
+    languages: dict[str, LanguageLevel] = Field(default_factory=dict)  # language -> read/write/speak, 1-5
 
     def days_to_join(self, today: date | None = None) -> int:
         """Days until you can join: what's left of the notice you're serving, else your notice period."""
