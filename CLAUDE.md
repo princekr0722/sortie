@@ -29,13 +29,18 @@ Sortie finds jobs on Indian job portals, scores them against the user's resume, 
 - `doc/**/*.md` and `README.md` are part of the repo and are committed with related changes. Other `.md` files follow the global rule: ask first.
 - Before committing, check with `git add -n .` that nothing personal or secret is staged: no API keys (`nvapi-`, `sk-…`), no personal emails or phones, no `/Users/...` paths.
 - Commit or push only when the user asks.
-- **Docs check before every push**: go through what changed and update, in the same push:
-  - `doc/TRACKER.md` rows
-  - the affected `doc/features/*.md`: behaviour, the `**Status:**` line and the lessons table
-  - `doc/INDEX.md` if a feature or its status changed
-  - `README.md` if usage or setup changed
-  - the `config/*.example*` files if a config key or its meaning changed
-  - this file if a rule changed
+- **Docs check before every push.** Run `git status --short` and go through every changed or new code file. For each one, update the docs below that apply, in the same push. Then list the docs you touched when you report the push, so a gap shows.
+
+  | When the change… | Update |
+  |---|---|
+  | does anything | `doc/TRACKER.md`: a new or updated row, and the `_Last updated:_` date at the top |
+  | changes a feature's behaviour | its `doc/features/*.md`: behaviour, the `**Status:**` line, the lessons table for fixes from live runs |
+  | adds a feature or changes its status | a new feature doc for a new feature, plus its `doc/INDEX.md` row |
+  | adds a module, command, table or folder, or changes the run flow | `doc/PLAN.md`: §3 Architecture tree and §4 Run flow (and §5 Phases if an item is done) |
+  | changes the SQLite schema | `doc/features/tracking-db.md` (Tables) |
+  | adds a command or changes usage or setup | `README.md`, and the Commands block at the top of this file |
+  | adds a config key or changes its meaning | the `config/*.example*` files (and `README.md` setup if users must act) |
+  | changes a rule or a way of working | this file |
 
   A push with code changes but no doc changes needs a reason.
 
