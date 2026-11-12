@@ -266,17 +266,44 @@ def find_skill(profile: Profile, text: str) -> str | None:
     return None
 
 
+# Countries a work-authorization question may name. One that isn't in your work_authorization means "not
+# authorized": "authorized to work in the United States?" must never fall back to your home country.
+NAMED_COUNTRIES = {
+    # US visa types name the US without saying so ("employment visa status (e.g., H-1B, TN, E-3, O-1)")
+    "usa": r"united states|u\.s\.a?\.?|usa|\bus\b|america|h-?1b|\bopt\b|green card|\bo-1\b|\be-3\b|\btn visa",
+    "canada": r"canada", "uk": r"united kingdom|\buk\b|britain|england", "eu": r"european union|\beu\b|europe",
+    "germany": r"germany", "netherlands": r"netherlands", "ireland": r"ireland", "france": r"france",
+    "australia": r"australia", "new zealand": r"new zealand", "singapore": r"singapore", "uae": r"\buae\b|emirates|dubai",
+    "japan": r"japan", "israel": r"israel", "philippines": r"philippines", "india": r"india",
+}
+
+
+def _mentions(text: str, alias: str) -> bool:
+    return re.search(rf"(?<![\w.]){re.escape(alias)}(?![\w])", text) is not None
+
+
 def _job_country(profile: Profile, q: str, job: Job) -> str:
-    """Country the question or job is about, out of those in work_authorization; else your home country."""
-    text = q + " " + " ".join(job.locations).lower()
+    """Country the question is about (any it names, listed in work_authorization or not), else one of yours in
+    the job's locations, else your home country."""
     for country in profile.work_authorization:
-        if any(a in text for a in location_aliases(country)):
+        if any(_mentions(q, a) for a in location_aliases(country)):
+            return country.lower()
+    for country, pattern in NAMED_COUNTRIES.items():
+        if re.search(pattern, q):
             return country
+    places = " ".join(job.locations).lower()
+    for country in profile.work_authorization:
+        if any(_mentions(places, a) for a in location_aliases(country)):
+            return country.lower()
     return profile.home_country.lower()
 
 
 def _authorized(profile: Profile, country: str) -> bool:
-    return {k.lower(): v for k, v in profile.work_authorization.items()}.get(country, False)
+    # a named country you haven't listed counts as not authorized; aliases ("usa" / "united states") match too
+    auth = {k.lower(): v for k, v in profile.work_authorization.items()}
+    if country in auth:
+        return bool(auth[country])
+    return any(bool(v) for k, v in auth.items() if country in location_aliases(k))
 
 
 def profile_answer(profile: Profile, q: Question, job: Job,
@@ -345,10 +372,13 @@ def profile_answer(profile: Profile, q: Question, job: Job,
     if "relocat" in ql:
         return _yes_no(profile.willing_to_relocate, q)
 
+    # "authorized to work in X without sponsorship?" is an authorization question, so it's checked before
+    # "will you require sponsorship?"
+    if re.search(r"authori[sz]ed to work|eligible to work|right to work|work permit|legally allowed|"
+                 r"legally (able|permitted) to work", ql):
+        return _yes_no(_authorized(profile, _job_country(profile, ql, job)), q)
     if re.search(r"sponsor", ql):
         return _yes_no(not _authorized(profile, _job_country(profile, ql, job)), q)
-    if re.search(r"authori[sz]ed to work|eligible to work|right to work|work permit|legally allowed", ql):
-        return _yes_no(_authorized(profile, _job_country(profile, ql, job)), q)
 
     if re.search(r"experience|how many years|how long have you|\byoe\b|\bexp\b", ql):
         skill = find_skill(profile, ql)

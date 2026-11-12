@@ -48,7 +48,7 @@ Resolution order for each question:
 - **Notice:** choice → option with "30" or "1 month"; number → `30`; text → "30 days". "Are you serving notice?" → asks you (once; then `answers.yaml`).
 - **Offers in hand** ("share details about any offer …") → asks you; never the CTC rule.
 - An LLM reply that isn't JSON is offered to you as a suggestion, never auto-accepted.
-- **Country** for visa / authorization questions: any country in `work_authorization` named in the question or job location (cities count), else `home_country`.
+- **Country** for visa / authorization questions: any country named in the question (an unlisted one, e.g. the United States or a US visa type, means not authorized), else a `work_authorization` country in the job location (cities count), else `home_country`. See [profile](profile-and-durations.md).
 
 ## Your notes (`config/about.md`)
 - Free-form Markdown about you: projects, achievements, why you're looking, what you want. Created by `sortie init` from `config/about.example.md`; git-ignored.

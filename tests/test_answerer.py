@@ -66,6 +66,18 @@ def test_location_relocation_authorization(profile):
     assert ans(profile, "Will you require visa sponsorship?", K.CHOICE, ["Yes", "No"], job=ABROAD_JOB) == "Yes"
     assert ans(profile, "Are you legally authorized to work in the UAE?", K.CHOICE, ["Yes", "No"]) == "No"
 
+    # a country you haven't listed is "not authorized", never your home country's answer (Wellfound, 2026-11-12)
+    yn, yns = ["Yes", "No"], ["Yes", "Not sure", "No"]
+    assert ans(profile, "Are you legally authorized to work in the United States?*", K.CHOICE, yn) == "No"
+    assert ans(profile, "Will you now or in the future require visa sponsorship to work in the US?", K.CHOICE, yn) == "Yes"
+    assert ans(profile, "Will you now or in the future require sponsorship for employment visa status "
+                        "(e.g., H-1B, TN, E-3, O-1)?*", K.CHOICE, yns) == "Yes"
+    assert ans(profile, "Are you currently authorized to work in the United States without requiring visa "
+                        "sponsorship, now or in the future?*", K.CHOICE, yn) == "No"
+    assert ans(profile, "Are you authorized to work in the UK?", K.CHOICE, yn) == "No"
+    assert ans(profile, "Are you authorized to work in India?", K.CHOICE, yn) == "Yes"
+    assert ans(profile, "Are you legally authorized to work in the country where this job is located?", K.CHOICE, yn) == "Yes"
+
 
 class FakeLLM:
     def __init__(self, reply):

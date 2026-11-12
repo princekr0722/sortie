@@ -17,7 +17,8 @@ from sortie.llm.answerer import Answerer
 from sortie.log import log
 from sortie.models import Answer, ApplyResult, Job, Question, QuestionKind, Status
 from sortie.sites.base import ConfirmSubmit, SiteAdapter
-from sortie.sites.forms import (MAX_LLM_MOVES, fill_field, fill_step, find_button, form_errors, llm_step_move,
+from sortie.sites.forms import (MAX_LLM_MOVES, fill_field, fill_step, find_button, fix_rejected_phone,
+                                form_errors, llm_step_move,
                                 needs_you_reason, read_fields)
 from sortie.textutil import html_to_text
 
@@ -39,7 +40,10 @@ NEXT_BUTTON = re.compile(r"continue|next", re.I)
 # "Applications to this job are managed outside of Wellfound. … Apply on website" (verified 2026-11-12)
 # verified 2026-11-12: the popup says this, and Send stays disabled, when the company doesn't hire from your
 # location (your Wellfound profile's location)
-LOCATION_BLOCKED = re.compile(r"not accepting applications from your (current )?location", re.I)
+# Two wordings seen: "<Company> is not accepting applications from your current location…" and "This job does not
+# support the locations [or timezones for remote work] on your profile" (both verified 2026-11-12)
+LOCATION_BLOCKED = re.compile(r"not accepting applications from your (current )?location|"
+                              r"does not support the locations (or timezones )?(for remote work )?on your profile", re.I)
 EXTERNAL_TEXT = re.compile(r"managed outside of wellfound|apply on (the )?(company )?website", re.I)
 APPLICATION_STATUS = re.compile(r"pending|reviewed|interviewing|in review|offer|rejected|declined|withdrawn|archived",
                                 re.I)
@@ -278,13 +282,17 @@ class WellfoundAdapter(SiteAdapter):
             if unanswered:
                 return ApplyResult(Status.SKIPPED, f"couldn't answer: {unanswered.text}", answers,
                                    await self.debug_dump("unanswered"))
+            if problem := await fix_rejected_phone(dialog, answers):
+                return ApplyResult(Status.FAILED, problem, answers, await self.debug_dump("phone"))
             empty = [f.label for f in await read_fields(dialog) if f.required and not f.filled]
             if empty:
                 return ApplyResult(Status.FAILED, f"required field left empty: {empty[0][:80]}", answers,
                                    await self.debug_dump("incomplete"))
             if send := await find_button(dialog, SEND_BUTTON):
                 if await send.is_disabled():  # never wait out a 30 s click timeout on a button that can't be pressed
-                    return ApplyResult(Status.FAILED, "send button is disabled", answers,
+                    errors = await form_errors(dialog)
+                    return ApplyResult(Status.FAILED, "send button is disabled"
+                                       + (f": {errors[0][:100]}" if errors else ""), answers,
                                        await self.debug_dump("send-disabled"))
                 if not await confirm(job, answers):
                     return ApplyResult(Status.SKIPPED, "not submitted", answers)

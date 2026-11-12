@@ -29,6 +29,13 @@ def test_wellfound_is_a_regular_site():
     assert "wellfound" in ADAPTERS and "wellfound" not in EXPERIMENTAL
 
 
+def test_location_blocked_wordings():
+    from sortie.sites.wellfound import LOCATION_BLOCKED
+    assert LOCATION_BLOCKED.search("acme is not accepting applications from your current location due to timezone")
+    assert LOCATION_BLOCKED.search("this job does not support the locations on your profile.")
+    assert LOCATION_BLOCKED.search("this job does not support the locations or timezones for remote work on your profile.")
+
+
 def test_unknown_role_redirect_detected():
     from sortie.sites.wellfound import is_role_page
     assert is_role_page("https://wellfound.com/role/l/backend-engineer/bangalore?page=2")
@@ -69,3 +76,76 @@ def test_remote_jobs_closed_to_your_country_are_dropped():
     # remote only in the US, but also an office in one of your cities: left to the apply-time check
     assert open_to({"remoteOnlyIn": ["United States"], "locations": ["Bangalore Urban", "San Francisco"]}, yours)
     assert not open_to({"remoteOnlyIn": "['United States']", "locations": "['Indiana']"}, yours)  # no false "india" hit
+
+
+REACT_SELECT = """<div role="dialog" aria-modal="true"><label for="form-input--undefined">
+  <div><div>Will you now or in the future require sponsorship (e.g., H-1B)?<span>*</span></div></div>
+  <div class="css-container"><div class="select__control" id="ctl"><div class="select__value-container">
+    <div class="select__placeholder">Select...</div>
+    <div class="select__input"><input id="react-select-q-input" aria-autocomplete="list" type="text" value=""
+         style="width: 2px; opacity: 0"></div></div></div></div></label>
+  <div id="menu-root"></div></div>
+<script>
+  document.getElementById('ctl').addEventListener('mousedown', () => {
+    const root = document.getElementById('menu-root');
+    root.innerHTML = ['Yes', 'Not sure', 'No'].map((t, i) =>
+      `<div id="react-select-q-option-${i}" class="select__option">${t}</div>`).join('');
+    root.querySelectorAll('.select__option').forEach(o => o.addEventListener('click', () => {
+      document.querySelector('.select__placeholder').outerHTML = `<div class="select__single-value">${o.innerText}</div>`;
+      root.innerHTML = '';
+    }));
+  });
+  // like the real modal: Escape closes the whole dialog; blurring the input closes just the menu
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelector('[role=dialog]').remove(); });
+  document.getElementById('react-select-q-input').addEventListener('blur', () => {
+    setTimeout(() => { document.getElementById('menu-root').innerHTML = ''; }, 0); });
+</script>"""
+
+
+async def test_react_select_dropdown_is_read_and_chosen():
+    from playwright.async_api import async_playwright
+    from sortie.sites.forms import fill_field, read_fields, to_question
+    from sortie.models import QuestionKind
+    async with async_playwright() as pw:
+        browser = await pw.chromium.launch(channel="chrome", headless=True)
+        page = await browser.new_page()
+        await page.set_content(REACT_SELECT)
+        dialog = page.locator("[role=dialog]")
+        [f] = await read_fields(dialog)
+        assert (f.kind, f.options, f.required, f.filled) == ("combobox", ["Yes", "Not sure", "No"], True, False)
+        assert to_question(f).kind == QuestionKind.CHOICE
+        await fill_field(dialog, f, "Yes")
+        [after] = await read_fields(dialog)
+        open_menus = await page.locator(".select__option").count()
+        await browser.close()
+    assert after.filled and open_menus == 0
+
+
+def test_phone_variants_keep_the_country_code():
+    from sortie.sites.forms import phone_variants
+    assert phone_variants("+919876543210") == ["+91 98765 43210", "+91 9876543210", "+91-9876543210",
+                                               "+91 987-654-3210"]
+    assert phone_variants("9876543210") == []  # no country code: nothing safe to try
+
+
+async def test_rejected_phone_is_retyped_in_another_format():
+    from playwright.async_api import async_playwright
+    from sortie.models import Answer
+    from sortie.sites.forms import fix_rejected_phone, read_fields
+    # a validator that wants a space after the country code
+    html = """<div role="dialog"><label for="form-input--undefined"><div>Phone</div>
+      <div><input type="text" id="p" placeholder="eg: 123-456-7890" value="+919876543210"></div><div id="err"></div></label></div>
+      <script>const p = document.getElementById('p'); const check = () => document.getElementById('err').innerText =
+        /^\\+\\d{1,3} /.test(p.value) ? '' : 'Phone number is not valid';
+        p.addEventListener('blur', check); check();</script>"""
+    async with async_playwright() as pw:
+        browser = await pw.chromium.launch(channel="chrome", headless=True)
+        page = await browser.new_page()
+        await page.set_content(html)
+        dialog = page.locator("[role=dialog]")
+        await read_fields(dialog)
+        answers = {"Phone": Answer("+919876543210", "profile")}
+        assert await fix_rejected_phone(dialog, answers) is None
+        value = await page.locator("#p").input_value()
+        await browser.close()
+    assert value == "+91 98765 43210" and answers["Phone"].value == value

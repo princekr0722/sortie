@@ -53,7 +53,12 @@ Longer context (projects, achievements, preferences) goes in `config/about.md`, 
 
 ## Location, authorization, education
 - Current location: the city part of `current_location`, matched against dropdown options using the location aliases (Bengaluru ↔ Bangalore, Gurugram ↔ Gurgaon, …).
-- Work authorization / sponsorship: the country is taken from the question or the job's location (any country listed in `work_authorization`, cities count, e.g. Dubai → UAE); otherwise `home_country`. Sponsorship = "Yes" where you're not authorized.
+- Work authorization / sponsorship: which country the question is about is decided in this order:
+  1. any country the question names. One you haven't listed in `work_authorization` counts as **not authorized**. US visa types (H-1B, TN, O-1, E-3, green card) count as naming the US.
+  2. a listed country in the job's location (cities count, e.g. Dubai → UAE).
+  3. `home_country`.
+  Sponsorship = "Yes" where you're not authorized. "Authorized to work in X without sponsorship?" is answered as an authorization question.
+  Fixed 2026-11-12: "authorized to work in the United States?" used to fall back to the home country and answer Yes. It was caught before any form was sent.
 - Education dropdowns: first option matching `education_aliases`, in order.
 - Missing `resume_pdf`: a warning, and the LLM works from the profile alone.
 

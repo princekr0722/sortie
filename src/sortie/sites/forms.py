@@ -44,7 +44,7 @@ FIELDS_JS = """root => {
   const fields = [], grouped = new Set();
   for (const group of root.querySelectorAll('fieldset, [role=radiogroup], [role=group]')) {
     const inputs = [...group.querySelectorAll('input[type=radio], input[type=checkbox]')].filter(i => !grouped.has(i));
-    if (!inputs.length || !visible(group)) continue;
+    if (!inputs.length || !visible(group) || inputs.every(i => i.disabled)) continue;  // a disabled form isn't fillable
     inputs.forEach(i => grouped.add(i));
     const type = inputs[0].type;
     const legend = group.querySelector('legend');
@@ -60,7 +60,7 @@ FIELDS_JS = """root => {
   // group them by name; the question is the wrapping label's first block, else the text just before the group
   const loose = {};
   for (const r of root.querySelectorAll('input[type=radio]')) {
-    if (grouped.has(r) || !r.name || !visible(r.parentElement)) continue;
+    if (grouped.has(r) || !r.name || r.disabled || !visible(r.parentElement)) continue;
     (loose[r.name] ||= []).push(r);
   }
   for (const inputs of Object.values(loose)) {
@@ -84,6 +84,14 @@ FIELDS_JS = """root => {
     if (el.getAttribute('role') === 'searchbox' || /^\\s*search\\b/i.test(el.getAttribute('placeholder') || '')) continue;
     const options = tag === 'select' ? [...el.options].filter(o => o.value !== '').map(o => clean(o.text)) : [];
     const label = labelOf(el);
+    // a searchable dropdown (react-select: a hidden text box in a "…control" box; the choice shows as a single value)
+    if (el.getAttribute('aria-autocomplete') === 'list' || el.getAttribute('role') === 'combobox') {
+      const control = el.closest('[class*=control]') || el.parentElement;
+      const chosen = control.querySelector('[class*=singleValue], [class*=single-value], [class*=multiValue], [class*=multi-value]');
+      fields.push({key: key(el), kind: 'combobox', label, options: [], filled: !!(chosen && clean(chosen.innerText)),
+                   required: required(el) || /\*\s*$/.test(label), placeholder: ''});
+      continue;
+    }
     fields.push({key: key(el), kind: type || 'text', label, options, filled: el.value.trim() !== '',
                  required: required(el) || /\\*\\s*$/.test(label), placeholder: el.getAttribute('placeholder') || ''});
   }
@@ -98,7 +106,7 @@ ERRORS_JS = """root => [...root.querySelectorAll('[role=alert], [id*=error i], [
 @dataclass
 class Field:
     key: str
-    kind: str  # text | number | email | tel | url | search | textarea | select | radio | checkbox | consent
+    kind: str  # text | number | email | tel | url | search | textarea | select | combobox | radio | checkbox | consent
     label: str
     options: list[str] = field(default_factory=list)
     filled: bool = False
@@ -112,7 +120,7 @@ class Field:
 
 def to_question(f: Field) -> Question:
     text = REQUIRED_MARK.sub("", OPTIONAL.sub("", f.label)).strip(" *")
-    if f.kind in ("radio", "select", "consent"):
+    if f.kind in ("radio", "select", "consent") or (f.kind == "combobox" and f.options):
         return Question(text, QuestionKind.CHOICE, f.options)
     if f.kind == "checkbox":
         return Question(text, QuestionKind.MULTI_CHOICE, f.options)
@@ -128,7 +136,63 @@ def to_question(f: Field) -> Question:
 
 async def read_fields(scope: Scope) -> list[Field]:
     raw = await _root(scope).evaluate(FIELDS_JS)
-    return [Field(**r) for r in raw if r["label"]]
+    fields = [Field(**r) for r in raw if r["label"]]
+    for f in fields:
+        if f.kind == "combobox" and not f.filled:
+            f.options = await _combo_options(scope, f)
+    return fields
+
+
+# a react-select menu's options (often rendered in a portal outside the form, so looked up page-wide)
+COMBO_OPTION = "[id*='react-select'][id*='-option-'], [class*='select__option'], [role=option]"
+
+
+def _page(scope: Scope) -> Page:
+    return scope if isinstance(scope, Page) else scope.page
+
+
+async def _open_combo(scope: Scope, f: Field):
+    box = scope.locator(f"[data-sortie-key='{f.key}']").first
+    control = box.locator("xpath=ancestor::*[contains(@class,'control')][1]")
+    await (control.first if await control.count() else box).click(timeout=5000)
+    await _pause(scope, 300)
+    return _page(scope).locator(COMBO_OPTION).filter(visible=True)
+
+
+async def _combo_options(scope: Scope, f: Field) -> list[str]:
+    """Open the dropdown, read its options, close it again."""
+    try:
+        options = await _open_combo(scope, f)
+        texts = [" ".join(t.split()) for t in await options.all_inner_texts()]
+        await _close_combo(scope, f)
+        return [t for t in dict.fromkeys(texts) if t]
+    except Exception:
+        return []
+
+
+async def _close_combo(scope: Scope, f: Field) -> None:
+    """Close the menu by taking focus off it. Not Escape: in a modal, Escape closes the whole dialog (verified
+    2026-11-12, it closed a Wellfound application mid-fill). Not Tab either: react-select's Tab picks the
+    highlighted option."""
+    await scope.locator(f"[data-sortie-key='{f.key}']").first.evaluate("el => el.blur()")
+    await _pause(scope, 200)
+
+
+async def _choose_combo(scope: Scope, f: Field, item: str) -> None:
+    options = await _open_combo(scope, f)
+    texts = [" ".join(t.split()) for t in await options.all_inner_texts()]
+    if item not in texts:
+        await _close_combo(scope, f)
+        raise RuntimeError(f"{item!r} is not an option of {f.label[:60]!r}")
+    await options.nth(texts.index(item)).click(timeout=5000)
+    await _pause(scope, SETTLE_MS)
+    chosen = await _root(scope).evaluate(
+        """(root, key) => { const el = root.querySelector(`[data-sortie-key='${key}']`);
+             const c = el && (el.closest('[class*=control]') || el.parentElement);
+             const v = c && c.querySelector('[class*=singleValue], [class*=single-value], [class*=multiValue], [class*=multi-value]');
+             return v ? v.innerText.replace(/\\s+/g, ' ').trim() : ''; }""", f.key)
+    if chosen != item:
+        raise RuntimeError(f"couldn't select {item!r} for {f.label[:60]!r}")
 
 
 async def form_errors(scope: Scope) -> list[str]:
@@ -139,6 +203,8 @@ async def fill_field(scope: Scope, f: Field, value: str | list[str]) -> None:
     target = scope.locator(f"[data-sortie-key='{f.key}']").first
     if f.kind == "select":
         await target.select_option(label=value if isinstance(value, str) else value[0])
+    elif f.kind == "combobox" and f.options:
+        await _choose_combo(scope, f, value if isinstance(value, str) else value[0])
     elif f.kind in ("radio", "checkbox", "consent"):
         for item in value if isinstance(value, list) else [value]:
             await _select_option(scope, f, item)
@@ -150,8 +216,7 @@ SETTLE_MS = 400  # a React form can undo a click it didn't register on its next 
 
 
 async def _pause(scope: Scope, ms: int) -> None:
-    page = scope if isinstance(scope, Page) else scope.page
-    await page.wait_for_timeout(ms)
+    await _page(scope).wait_for_timeout(ms)
 
 
 async def _select_option(scope: Scope, f: Field, item: str) -> None:
@@ -182,6 +247,49 @@ async def _select_option(scope: Scope, f: Field, item: str) -> None:
         if await option.is_checked():
             return
     raise RuntimeError(f"couldn't select {item!r} for {f.label[:60]!r}")
+
+
+PHONE_LABEL = re.compile(r"phone|mobile|contact (number|no)", re.I)
+FIELD_ERROR_JS = """(root, key) => {
+  const el = root.querySelector(`[data-sortie-key='${key}']`);
+  const box = el && (el.closest('label') || el.parentElement && el.parentElement.parentElement);
+  return !!box && /not (a )?valid|invalid|incorrect format/i.test(box.innerText);
+}"""
+
+
+def phone_variants(number: str) -> list[str]:
+    """Other ways to write the same number, always with its country code: some forms reject "+919876543210" but
+    take "+91 98765 43210". A bare national number is never tried (a US form would read it as a US number)."""
+    digits = re.sub(r"\D", "", number)
+    if not number.strip().startswith("+") or len(digits) <= 10:
+        return []
+    cc, national = digits[:-10], digits[-10:]
+    return [f"+{cc} {national[:5]} {national[5:]}", f"+{cc} {national}", f"+{cc}-{national}",
+            f"+{cc} {national[:3]}-{national[3:6]}-{national[6:]}"]
+
+
+async def fix_rejected_phone(scope: Scope, answers: dict[str, Answer]) -> str | None:
+    """If the form flags a phone number we typed as invalid, retype it in other formats. Returns None when
+    nothing was rejected or a format was accepted, else a reason."""
+    for f in await read_fields(scope):
+        if f.kind not in ("text", "tel") or not PHONE_LABEL.search(f.label):
+            continue
+        box = scope.locator(f"[data-sortie-key='{f.key}']").first
+        await box.press("Tab")  # many forms validate on blur
+        await _pause(scope, SETTLE_MS)
+        if not await _root(scope).evaluate(FIELD_ERROR_JS, f.key):
+            continue
+        for variant in phone_variants(await box.input_value()):
+            await box.fill(variant)
+            await box.press("Tab")
+            await _pause(scope, SETTLE_MS)
+            if not await _root(scope).evaluate(FIELD_ERROR_JS, f.key):
+                q = to_question(f).text
+                if q in answers:
+                    answers[q] = Answer(variant, answers[q].source)
+                return None
+        return f"the form rejected the phone number in every format ({f.label.strip(' *')})"
+    return None
 
 
 async def fill_step(scope: Scope, answerer: Answerer, job: Job, answers: dict[str, Answer],
