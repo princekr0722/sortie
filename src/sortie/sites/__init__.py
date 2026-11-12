@@ -3,12 +3,14 @@ from sortie.sites.cutshort import CutshortAdapter
 from sortie.sites.indeed import IndeedAdapter
 from sortie.sites.instahyre import InstahyreAdapter
 from sortie.sites.naukri import NaukriAdapter
+from sortie.sites.wellfound import WellfoundAdapter
 
 # site name -> adapter class; only these can be run or logged in to
 ADAPTERS: dict[str, type[SiteAdapter]] = {
     NaukriAdapter.name: NaukriAdapter,
     InstahyreAdapter.name: InstahyreAdapter,
     CutshortAdapter.name: CutshortAdapter,
+    WellfoundAdapter.name: WellfoundAdapter,
 }
 
 # runnable only when named (`--sites cutshort`), never in "all sites", until verified live in review mode

@@ -40,7 +40,7 @@ Goal: every form Sortie can complete honestly gets completed (the apply form, th
    - **Send** and **Cancel**
 
    The dialog must mention the job's title or company, else it's closed unfilled. "You already have an active conversation on this job" → `skipped: already applied`.
-3. **The message is the application.** `Answerer.compose()` writes 3–5 first-person sentences from your resume, `about.md` and the job description. Profile rules don't apply, and it isn't saved to answers.yaml. If the LLM isn't confident, you're asked, with its draft as the suggestion. If nothing can be written, the job is skipped.
+3. **The message is the application.** `Answerer.compose()` writes 3–5 first-person sentences from your resume, `about.md` and the job description. Profile rules don't apply, and it isn't saved to answers.yaml. The LLM's draft is used whatever its confidence (one retry if a reply is unusable); you're asked only without an LLM or when both tries fail. If nothing can be written, the job is skipped.
 4. Other fields, if any, go through the form filler. Required fields must be filled before Send, voice/video/file steps → needs-you, and unfamiliar steps → the LLM navigator (which may never press Apply or Send).
 5. `confirm()` (review mode shows "Message to the hiring team → …"), then **Send**.
 6. **Success** (as you described it): "Sending…", a success strip, the dialog closes, and **this job's card** button turns into **View conversation**. Only this card is checked, since other cards may already say "View conversation".

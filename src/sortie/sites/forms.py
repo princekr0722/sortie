@@ -32,6 +32,10 @@ FIELDS_JS = """root => {
   const key = el => (el.dataset.sortieKey ||= 'f' + (window.__sortieN = (window.__sortieN || 0) + 1));
   const labelOf = el => {
     if (el.labels && el.labels.length) return clean(el.labels[0].innerText);
+    // a <label> wrapping the field but pointing for= elsewhere ("form-input--undefined", Wellfound) isn't linked:
+    // use its question text, i.e. the first block before the field
+    const wrap = el.closest('label');
+    if (wrap && wrap.firstElementChild && !wrap.firstElementChild.contains(el)) return clean(wrap.firstElementChild.innerText);
     const by = el.getAttribute('aria-labelledby');
     if (by) return clean(by.split(/\\s+/).map(id => document.getElementById(id)?.innerText || '').join(' '));
     return clean(el.getAttribute('aria-label') || el.getAttribute('placeholder') || '');
@@ -52,6 +56,25 @@ FIELDS_JS = """root => {
     fields.push({key: groupKey, kind, label, options: inputs.map(labelOf),
                  filled: inputs.some(i => i.checked), required: inputs.some(required) || /\\*/.test(label)});
   }
+  // radios outside any fieldset/radiogroup (Wellfound: a <label> wrapping the question and its Yes/No radios):
+  // group them by name; the question is the wrapping label's first block, else the text just before the group
+  const loose = {};
+  for (const r of root.querySelectorAll('input[type=radio]')) {
+    if (grouped.has(r) || !r.name || !visible(r.parentElement)) continue;
+    (loose[r.name] ||= []).push(r);
+  }
+  for (const inputs of Object.values(loose)) {
+    let box = inputs[0].parentElement;
+    while (box && box !== root && !inputs.every(i => box.contains(i))) box = box.parentElement;
+    const wrap = inputs[0].closest('label');
+    let label = wrap && wrap.firstElementChild && !wrap.firstElementChild.contains(inputs[0]) ? clean(wrap.firstElementChild.innerText) : '';
+    if (!label && box && box.previousElementSibling) label = clean(box.previousElementSibling.innerText);
+    inputs.forEach(i => grouped.add(i));
+    const groupKey = key(box || inputs[0]);
+    inputs.forEach((input, i) => { input.dataset.sortieOpt = groupKey + '-' + i; });
+    fields.push({key: groupKey, kind: 'radio', label, options: inputs.map(labelOf),
+                 filled: inputs.some(i => i.checked), required: inputs.some(required) || /\*\s*$/.test(label)});
+  }
   for (const el of root.querySelectorAll('input, textarea, select')) {
     if (grouped.has(el) || !visible(el) || el.disabled || el.readOnly) continue;
     const tag = el.tagName.toLowerCase();
@@ -60,8 +83,9 @@ FIELDS_JS = """root => {
     // a site's own search box is never a question ("Search for jobs e.g Android jobs in Delhi")
     if (el.getAttribute('role') === 'searchbox' || /^\\s*search\\b/i.test(el.getAttribute('placeholder') || '')) continue;
     const options = tag === 'select' ? [...el.options].filter(o => o.value !== '').map(o => clean(o.text)) : [];
-    fields.push({key: key(el), kind: type || 'text', label: labelOf(el), options,
-                 filled: el.value.trim() !== '', required: required(el), placeholder: el.getAttribute('placeholder') || ''});
+    const label = labelOf(el);
+    fields.push({key: key(el), kind: type || 'text', label, options, filled: el.value.trim() !== '',
+                 required: required(el) || /\\*\\s*$/.test(label), placeholder: el.getAttribute('placeholder') || ''});
   }
   return fields;
 }"""

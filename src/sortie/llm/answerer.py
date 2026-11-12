@@ -12,7 +12,7 @@ from sortie.config import Profile, normalize_skill
 from sortie.durations import Duration
 from sortie.filters import location_aliases
 from sortie.llm.answer_book import AnswerBook
-from sortie.llm.client import LLMClient
+from sortie.llm.client import LLMClient, NotJSON
 from sortie.llm.matcher import profile_summary, resume_text
 from sortie.log import log
 from sortie.models import Answer, Job, Question, QuestionKind
@@ -30,6 +30,24 @@ SENSITIVE = re.compile(
     r"\b(salary|ctc|compensation|package|stipend|bond|visa|sponsor\w*|authori[sz]\w*|criminal|"
     r"convict\w*|disabilit\w*|gender|caste|religion|background check|legal)\b"
 )
+
+# Open-ended writing ("What interests you about this company?", "Why this role?", "Tell us about yourself"):
+# the LLM always writes these from the resume, notes and the job; they're never left to you or reused from
+# answers.yaml, since a good answer names this job and company.
+OPEN_ENDED = re.compile(
+    r"\b(why|interest(s|ed)?|motivat\w*|excit\w*|attract\w*|draws? you|appeal\w*|passion\w*|tell us|"
+    r"describe|about yourself|introduce yourself|cover letter|good fit|right fit|stand out|"
+    r"what (makes|would) you|anything else)\b"
+)
+# ...but not yes/no or logistics questions worded with those words ("Are you interested in relocating?")
+NOT_OPEN = re.compile(r"\b(relocat\w*|shifts?|night|onsite|on-site|office|hybrid|travel|contract|notice|joining|join (by|in|within|immediately)|"
+                      r"commute|bond|part.time|internship|url|link|github|linkedin|portfolio)\b|^(are|do|did|have|will|would|can|is) you\b")
+
+
+def is_open_ended(q: Question) -> bool:
+    text = q.text.lower().strip()
+    return (q.kind == QuestionKind.TEXT and bool(OPEN_ENDED.search(text))
+            and not NOT_OPEN.search(text) and not SENSITIVE.search(text))
 
 # Words that don't name a specific skill in an experience question ("total years of IT experience?")
 FILLER = set(
@@ -53,6 +71,15 @@ For an open question (describe a project, why you're looking, tell us about your
 Reply with only a JSON object: {"answer": "<text>", "confidence": <0-1>, "from_previous_answer": <true|false>}.
 For a choice question the answer must be exactly one of the options; for a multi-choice question
 "answer" is a list of options."""
+
+WRITE_SYSTEM = """You write the candidate's free-text answers on a job application (a note to the hiring team,
+"what interests you about this company?", "why this role?", "tell us about yourself").
+Write 2-4 first-person sentences that connect the candidate's real background (resume and notes) to this job
+and this company: name the company, say what about its product, domain or the role's work appeals, and which of
+the candidate's experience fits it. Take what the company does from the job description.
+Use only facts from the resume, notes and job description; never invent experience, numbers or employers.
+No salary, no greetings or sign-off, no placeholders like [Company]. The text is typed into the form as-is.
+Reply with only a JSON object: {"answer": "<text>", "confidence": <0-1>}."""
 
 SKILL_SYSTEM = """You answer "how much experience do you have in X" questions on job applications for the candidate below.
 X is not in the candidate's skill list, so infer it from their resume and listed skills:
@@ -375,6 +402,9 @@ class Answerer:
         if isinstance(rule, Answer):
             return rule
 
+        if is_open_ended(q):
+            return await self.compose(q, job)
+
         saved = self.book.lookup(q.text)
         if saved is not None and (value := self._fit(saved, q)) is not None:
             return Answer(value, "your answers")
@@ -405,17 +435,18 @@ class Answerer:
         return Answer(value, "user")
 
     async def compose(self, q: Question, job: Job) -> Answer | None:
-        """Free writing for this job (a note to the hiring team): LLM from the resume, notes and job description;
-        if it isn't confident, you, with its draft as the suggestion. Profile rules don't apply (they'd answer
+        """Free writing for this job (a note to the hiring team, "what interests you…"): the LLM writes it from the
+        resume, notes and job description, whatever its confidence (a second try if the first reply is unusable).
+        You're asked only when no LLM is set up or it fails twice. Profile rules don't apply (they'd answer
         "...your experience..." with a duration), and the text isn't saved to answers.yaml (it's job-specific)."""
-        suggestion = None
         if self.llm.enabled:
-            suggestion, confidence, _ = await self._ask_llm(q, job, SYSTEM)
-            if suggestion and confidence >= MIN_LLM_CONFIDENCE:
-                return suggestion
+            for _ in range(2):
+                written, _, _ = await self._ask_llm(q, job, WRITE_SYSTEM)
+                if written and len(str(written.value)) >= 40:
+                    return written
         if self.ask_user is None:
             return None
-        reply = await self.ask_user(q, job, suggestion)
+        reply = await self.ask_user(q, job, None)
         return Answer(reply.strip(), "user") if reply and reply.strip() else None
 
     def _fit(self, value: str | list[str], q: Question) -> str | list[str] | None:
@@ -462,7 +493,11 @@ class Answerer:
         try:
             data = await self.llm.complete_json(system, user)
         except ValueError as e:  # replied in plain text: offer it as a suggestion, never auto-accept it
-            plain = plain_answer(str(e).split("reply: ", 1)[-1])
+            plain = plain_answer(e.reply if isinstance(e, NotJSON) else str(e).split("reply: ", 1)[-1])
+            if system is WRITE_SYSTEM:  # free writing: the plain text is the answer
+                if not isinstance(e, NotJSON):
+                    return None, 0.0, False
+                return (Answer(plain, "llm"), 0.0, False) if len(plain) >= 40 else (None, 0.0, False)
             value = self._fit(plain, q) if plain and len(plain) < 200 else None
             return (Answer(value, "llm"), 0.0, False) if value else (None, 0.0, False)
         except Exception as e:  # a flaky LLM shouldn't kill the run; the user gets asked instead

@@ -19,6 +19,7 @@
 | Naukri adapter | [features/site-naukri.md](features/site-naukri.md) | 1 | In progress |
 | Instahyre adapter | [features/site-instahyre.md](features/site-instahyre.md) | 1 | Done (inbox in progress) |
 | CutShort adapter (+ questionnaires, needs-you list) | [features/site-cutshort.md](features/site-cutshort.md) | 1 | Done |
+| Wellfound adapter | [features/site-wellfound.md](features/site-wellfound.md) | 2 | ✅ Regular site (2026-11-12) |
 | Indeed adapter (+ generic form filler, LLM step navigator) | [features/site-indeed.md](features/site-indeed.md) | 2 | ⏸ Disabled (blockers in tracker 2.2d) |
 
 ## Conventions

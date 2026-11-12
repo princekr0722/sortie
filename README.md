@@ -1,6 +1,6 @@
 # Sortie
 
-Sortie searches job portals for roles that fit you, scores each job against your resume, and applies, answering the screening questions from your own profile. It works with Naukri, Instahyre and CutShort (including the screening questionnaires recruiters send after you apply). Indeed is built but disabled for now (see [doc/TRACKER.md](doc/TRACKER.md)). LinkedIn and company career sites are planned.
+Sortie searches job portals for roles that fit you, scores each job against your resume, and applies, answering the screening questions from your own profile. It works with Naukri, Instahyre, CutShort and Wellfound (including the screening questionnaires recruiters send after you apply). Indeed is built but disabled for now (see [doc/TRACKER.md](doc/TRACKER.md)). LinkedIn and company career sites are planned.
 
 It applies selectively: every job goes through your filters and an optional LLM fit score. Each question is answered from your profile, then from your saved answers, then by the LLM, and you're asked only when none of those can answer. Salary, visa and legal questions are never made up.
 
@@ -46,19 +46,20 @@ Then:
    Keep `LLM_THINKING=false`: with reasoning on, each answer takes 15–60 s instead of 1–5 s. Free-tier limits and the model list change over time; if a model stops replying, pick another from the catalog.
 5. Log in once in Sortie's browser:
    ```bash
-   .venv/bin/sortie login naukri      # and instahyre / cutshort
+   .venv/bin/sortie login naukri      # and instahyre / cutshort / wellfound
    ```
 
 ## Use
 ```bash
 .venv/bin/sortie run --sites naukri --review --limit 3   # asks before each submit (start here)
-.venv/bin/sortie run --sites instahyre,cutshort --review # any site, or several (instahyre, cutshort, naukri)
+.venv/bin/sortie run --sites instahyre,cutshort --review # any site, or several (naukri, instahyre, cutshort, wellfound)
 .venv/bin/sortie run --sites naukri --auto               # applies on its own, within daily caps
 .venv/bin/sortie run --sites naukri --dry-run            # never submits, records nothing
 .venv/bin/sortie report                                  # today's applied / cap per site, and what needs you
 .venv/bin/sortie retry naukri                            # failed jobs get fresh attempts (after a fix)
 ```
-Several sites run one after another: `--sites naukri,instahyre,cutshort` (default: all enabled sites).
+Several sites run one after another: `--sites naukri,instahyre,cutshort,wellfound` (default: all enabled sites).
+On Wellfound, use common job titles in `roles` ("Backend Engineer", "Java Developer"): a title it has no role page for is skipped there.
 Add `--headless` to run without a visible window (Naukri and Instahyre block headless browsers, so keep the browser visible).
 Add `--pace fast` for shorter pauses between pages (`careful` / `normal` / `fast`; default in `search.yaml`).
 

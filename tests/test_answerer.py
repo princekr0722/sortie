@@ -361,3 +361,39 @@ def test_join_time_wordings(profile):
     for q in ["If we give you an offer today, how soon can we expect you to join?",
               "How soon could you join?", "What is your earliest joining date?"]:
         assert ans(profile, q) == days, q
+
+
+class PlainTextLLM(FakeLLM):
+    async def complete_json(self, system, user):
+        from sortie.llm.client import parse_json_object
+        self.calls += 1
+        return parse_json_object(self.reply)
+
+
+async def test_open_ended_questions_are_written_by_the_llm(profile, tmp_path):
+    from sortie.llm.answerer import is_open_ended
+    book = AnswerBook(tmp_path / "answers.yaml")
+
+    async def ask(q, job, suggestion):
+        raise AssertionError("open-ended questions shouldn't reach the user")
+
+    text = "I like Acme's payments platform, and my Java microservices work maps directly onto this role. " * 3
+    q = Question("What interests you about working for this company?", K.TEXT)
+    # low confidence is still accepted for free writing
+    a = await Answerer(profile, book, FakeLLM({"answer": text, "confidence": 0.2}), ask).answer(q, JOB)
+    assert (a.value, a.source) == (text, "llm")
+    # a long plain-text reply (no JSON) is used whole, not cut at 200 characters
+    a = await Answerer(profile, book, PlainTextLLM(text), ask).answer(q, JOB)
+    assert a.value == text.strip()
+    # broken JSON (an unescaped quote): the answer text is recovered, never the parser's error message
+    broken = '{"answer": "I like Acme\'s "AI-first" platform and my Java backend work fits it well", "confidence": 0.8}'
+    a = await Answerer(profile, book, PlainTextLLM(broken), ask).answer(q, JOB)
+    assert "Expecting" not in a.value and "Acme" in a.value
+    assert not book.entries  # job-specific text is never saved
+
+    assert is_open_ended(Question("Why do you want to join us? Tell us in a few lines", K.TEXT))
+    assert not is_open_ended(Question("Why can you join within 15 days?", K.TEXT))
+    assert is_open_ended(Question("Why are you a good fit for this role?", K.TEXT))
+    assert not is_open_ended(Question("Are you interested in relocating to Jaipur?", K.TEXT))
+    assert not is_open_ended(Question("What interests you?", K.CHOICE, ["Backend", "Frontend"]))
+    assert not is_open_ended(Question("Why is your expected CTC higher?", K.TEXT))

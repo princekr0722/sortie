@@ -44,8 +44,19 @@ class LLMClient:
         return parse_json_object(response.choices[0].message.content)
 
 
+class NotJSON(ValueError):
+    """The model replied in plain text; `reply` keeps all of it (long answers are still usable)."""
+
+    def __init__(self, reply: str):
+        super().__init__(f"no JSON object in LLM reply: {reply[:200]!r}")
+        self.reply = reply
+
+
 def parse_json_object(text: str) -> dict:
     match = re.search(r"\{.*\}", text, re.DOTALL)
     if not match:
-        raise ValueError(f"no JSON object in LLM reply: {text[:200]!r}")
-    return json.loads(match.group(0))
+        raise NotJSON(text)
+    try:
+        return json.loads(match.group(0))
+    except json.JSONDecodeError:  # e.g. an unescaped quote in a long answer; the answer is still in the text
+        raise NotJSON(text) from None
