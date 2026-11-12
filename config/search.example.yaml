@@ -1,8 +1,9 @@
 # What to search for and how aggressively. Copy to search.yaml (`sortie init`) and edit.
 # See doc/features/search-and-filters.md
 
-roles:
+roles:                                     # include common titles too: Wellfound only has pages for those
   - Python Backend Developer
+  - Backend Engineer
   - Software Engineer Python Django
 locations: [Chennai, Gurugram, Noida]   # cities (Naukri searches Indian cities only)
 include_remote: true

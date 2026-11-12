@@ -3,7 +3,7 @@
 
 name: Your Name
 email: you@example.com
-phone: "+910000000000"
+phone: "+910000000000"            # with country code; reformatted (+91 00000 00000…) if a form rejects it
 current_location: Chennai, Tamil Nadu, India
 current_company: Your Company
 current_title: Software Engineer
@@ -16,7 +16,7 @@ last_working_day:         # YYYY-MM-DD, when serving_notice is true
 willing_to_relocate: true
 home_country: India
 work_authorization:               # country -> allowed to work there without sponsorship
-  india: true
+  india: true                     # any country not listed (e.g. the US) is answered "not authorized, needs sponsorship"
 education: B.Tech, Your University (2022)
 education_aliases: [B.Tech, B.E, Bachelor of Technology, Bachelor, Graduate, UG]   # how it may appear in dropdowns
 

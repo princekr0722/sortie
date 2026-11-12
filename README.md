@@ -2,7 +2,7 @@
 
 Sortie searches job portals for roles that fit you, scores each job against your resume, and applies, answering the screening questions from your own profile. It works with Naukri, Instahyre, CutShort and Wellfound (including the screening questionnaires recruiters send after you apply). Indeed is built but disabled for now (see [doc/TRACKER.md](doc/TRACKER.md)). LinkedIn and company career sites are planned.
 
-It applies selectively: every job goes through your filters and an optional LLM fit score. Each question is answered from your profile, then from your saved answers, then by the LLM, and you're asked only when none of those can answer. Salary, visa and legal questions are never made up.
+It applies selectively: every job goes through your filters and an optional LLM fit score. Each question is answered from your profile, then from your saved answers, then by the LLM, and you're asked only when none of those can answer. Salary, visa and legal questions are never made up. Free-text questions ("What interests you about this company?", the note to the hiring team) are written by the LLM for each job, from your resume and `about.md`.
 
 ## Requirements
 - macOS, Linux or Windows; Python 3.11+ (developed on macOS; Windows support hasn't been run end to end yet)
@@ -23,7 +23,7 @@ py -m venv .venv
 ```
 Everywhere this README says `.venv/bin/sortie …`, use `.venv\Scripts\sortie …` on Windows. On Windows, a CAPTCHA alert is a terminal beep (the desktop notification is macOS-only), and the answer prompt has no arrow-key line editing.
 Then:
-1. **`config/profile.yaml`**: your details. Experience is stored as **start dates** (`career_start`, `skills_since`) and computed on every run, so it never goes stale.
+1. **`config/profile.yaml`**: your details. Experience is stored as **start dates** (`career_start`, `skills_since`) and computed on every run, so it never goes stale. List the countries you can work in under `work_authorization`; any other country (e.g. the US) is answered "not authorized, needs sponsorship".
 2. **`config/search.yaml`**: roles, cities, experience range, companies/keywords to exclude, daily caps.
    **`config/about.md`** (optional): your projects, achievements and preferences in your own words. The AI reads it only for open-ended questions ("describe a project…") and to judge experience in skills not listed in your profile.
 3. **Resume**: put the PDF in `resumes/` and set `resume_pdf`.
@@ -59,7 +59,7 @@ Then:
 .venv/bin/sortie retry naukri                            # failed jobs get fresh attempts (after a fix)
 ```
 Several sites run one after another: `--sites naukri,instahyre,cutshort,wellfound` (default: all enabled sites).
-On Wellfound, use common job titles in `roles` ("Backend Engineer", "Java Developer"): a title it has no role page for is skipped there.
+On Wellfound, use common job titles in `roles` ("Backend Engineer", "Java Developer"): a title it has no role page for is skipped there. Wellfound also checks the location on your Wellfound profile: jobs it says don't support your location are skipped, and remote jobs limited to other countries are left out of the search.
 Add `--headless` to run without a visible window (Naukri and Instahyre block headless browsers, so keep the browser visible).
 Add `--pace fast` for shorter pauses between pages (`careful` / `normal` / `fast`; default in `search.yaml`).
 
