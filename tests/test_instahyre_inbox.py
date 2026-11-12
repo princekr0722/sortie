@@ -49,12 +49,16 @@ def test_awaiting_reply():
 
 
 def test_conversation_age():
-    from datetime import datetime, timezone
-    from sortie.sites.instahyre_inbox import conversation_age_ok
-    now = datetime(2026, 11, 20, tzinfo=timezone.utc)
-    assert conversation_age_ok({"modified": "2026-11-12T10:00:00Z"}, now)
-    assert not conversation_age_ok({"modified": "2026-10-01T10:00:00Z"}, now)
-    assert conversation_age_ok({"latest_message": "no date field"}, now)  # unknown: the cap bounds it
+    from datetime import date
+    from sortie.sites.instahyre_inbox import conversation_age_ok, message_date
+    today = date(2026, 11, 12)
+    assert message_date("Nov 05", today) == date(2026, 11, 5)
+    assert message_date("Dec 31, 2025", today) == date(2025, 12, 31)
+    assert message_date("Dec 20", today) == date(2025, 12, 20)  # no year and in the future: last year
+    assert message_date("10:45 AM", today) == today and message_date("Yesterday", today) == date(2026, 11, 11)
+    assert conversation_age_ok({"latest_msg_at": "Nov 02"}, today)
+    assert not conversation_age_ok({"latest_msg_at": "Oct 20"}, today)
+    assert conversation_age_ok({"latest_msg_at": "sometime"}, today)  # unreadable: kept, never skipped blindly
 
 
 async def test_finished_questionnaires_are_not_reopened():

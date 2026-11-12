@@ -8,7 +8,7 @@ only questionnaire messages are opened (to get the link). Everything else is lef
 from __future__ import annotations
 
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
 from dataclasses import dataclass
 
 from playwright.async_api import Error as PlaywrightError
@@ -23,11 +23,10 @@ BASE = "https://www.instahyre.com"
 # every conversation awaiting your reply from the last MAX_AGE_DAYS, however many there are (the first version
 # looked at only the last 10). SAFETY_PAGES only guards against a paging loop that never ends.
 PAGE_SIZE = 20
-MAX_EXTRA_PAGES = 10  # paging on, past the window, to find a tracked application's conversation
 MAX_AGE_DAYS = 14
 SAFETY_PAGES = 200
-UNDATED_PAGES = 10  # if conversations carry no readable date, the 14-day window can't apply: read this many pages
-DATE_FIELDS = ("latest_message_time", "last_message_time", "modified", "updated_at", "last_modified", "created")
+# conversations carry only the inbox's display label (verified 2026-11-12): "Oct 28" (this year), "Dec 31, 2025",
+# and for recent ones a time or "Yesterday"
 
 # previews are cut off mid-sentence; a match is confirmed by finding the questionnaire link
 QUESTIONNAIRE_PREVIEW = re.compile(r"questionnaire|thanks for showing interest in working with|as part of the applica", re.I)
@@ -56,23 +55,34 @@ class Questionnaire:
         return f"{BASE}/questionnaire/{self.questionnaire_id}/{self.opportunity_id}"
 
 
-def has_date(conversation: dict) -> bool:
-    return any(conversation.get(name) for name in DATE_FIELDS)
+def message_date(label: str, today: date | None = None) -> date | None:
+    """The date behind Instahyre's latest_msg_at label; None if it can't be read."""
+    today = today or date.today()
+    text = (label or "").strip()
+    if not text:
+        return None
+    if re.search(r"\d{1,2}:\d{2}|\b(am|pm)\b|today|just now|ago", text, re.I):
+        return today
+    if re.fullmatch(r"yesterday", text, re.I):
+        return today - timedelta(days=1)
+    for fmt in ("%b %d, %Y", "%B %d, %Y", "%d %b %Y"):
+        try:
+            return datetime.strptime(text, fmt).date()
+        except ValueError:
+            pass
+    for fmt in ("%b %d", "%B %d", "%d %b"):  # no year: this year, or last year if that would be in the future
+        try:
+            parsed = datetime.strptime(f"{text} {today.year}", f"{fmt} %Y").date()
+            return parsed if parsed <= today else parsed.replace(year=today.year - 1)
+        except ValueError:
+            pass
+    return None
 
 
-def conversation_age_ok(conversation: dict, now: datetime | None = None) -> bool:
-    """Within MAX_AGE_DAYS by whichever date field the conversation has; True when it has none (the cap still
-    bounds the scan)."""
-    for name in DATE_FIELDS:
-        if value := conversation.get(name):
-            try:
-                when = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-            except ValueError:
-                continue
-            if when.tzinfo is None:
-                when = when.replace(tzinfo=timezone.utc)
-            return (now or datetime.now(timezone.utc)) - when <= timedelta(days=MAX_AGE_DAYS)
-    return True
+def conversation_age_ok(conversation: dict, today: date | None = None) -> bool:
+    """Within MAX_AGE_DAYS by its latest_msg_at label; an unreadable label counts as recent (never skip blindly)."""
+    when = message_date(conversation.get("latest_msg_at") or "", today)
+    return when is None or ((today or date.today()) - when).days <= MAX_AGE_DAYS
 
 
 def inbox_url(limit: int = PAGE_SIZE, offset: int = 0) -> str:
@@ -139,13 +149,11 @@ class InstahyreInbox:
                 updates.append((job_id, "answered", "questionnaire finished earlier", ""))
 
     async def scan(self, tracked_jobs: set[str] = frozenset()) -> dict[str, str]:
-        """Conversations you haven't replied to: queue questionnaires, leave the rest for you. Pages on past the
-        usual window while a tracked application's conversation hasn't been seen yet. Returns job id ->
-        "questionnaire" / "message" for the conversations awaiting you."""
+        """Conversations you haven't replied to: queue questionnaires, leave the rest for you. Reads the whole inbox
+        (so tracked applications' conversations are always seen) and keeps the last MAX_AGE_DAYS. Returns job id ->
+        "questionnaire" / "message" / "done" for the conversations awaiting you."""
         self.questionnaires.clear()
         recent: list[dict] = []
-        unseen = set(tracked_jobs)
-        extra_pages = 0
         for page_number in range(SAFETY_PAGES):
             if page_number == SAFETY_PAGES - 1:
                 log.warning(f"  instahyre inbox: stopped at the {SAFETY_PAGES}-page safety limit")
@@ -153,19 +161,11 @@ class InstahyreInbox:
             if not response.ok:
                 log.warning(f"instahyre inbox failed ({response.status})")
                 break
-            data = await response.json()
-            page_items = data.get("objects", [])
+            page_items = (await response.json()).get("objects", [])
             recent += [c for c in page_items if conversation_age_ok(c)]
-            unseen -= {str(c.get("job_id") or "") for c in page_items}
-            more = bool((data.get("meta") or {}).get("next"))
-            past_window = not page_items or not conversation_age_ok(page_items[-1])
-            if page_items and not has_date(page_items[-1]) and page_number + 1 >= UNDATED_PAGES:
-                log.warning(f"  instahyre inbox: conversations have no readable date; read the newest "
-                            f"{UNDATED_PAGES * PAGE_SIZE} instead of the last {MAX_AGE_DAYS} days")
-                past_window = True
-            extra_pages += past_window
-            if not more or (past_window and (not unseen or extra_pages > MAX_EXTRA_PAGES)):
-                break  # newest first: past the window (and every tracked conversation seen), or no more pages
+            # meta.next is always null and the order is only roughly by date: read every page, filter by date
+            if len(page_items) < PAGE_SIZE:
+                break
         pending = [c for c in recent if awaiting_reply(c)]
         seen: dict[str, str] = {}
         finished = 0

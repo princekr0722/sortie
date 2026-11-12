@@ -45,7 +45,11 @@
 Runs through the site hooks: `before_jobs` scans the inbox, `after_jobs` answers questionnaires once the applications are done. Verified states 2026-11-05: open, already sent, closed/redirect.
 
 **Scan (start of the Instahyre run)**
-- `GET /api/v1/inbox_page/candidate_conversation?limit=20&offset=<n>`, paged: every conversation from the **last 14 days**, read or unread, however many. No cap on the count; only a 200-page safety stop, and 10 pages if conversations carry no readable date. It stops at the first page reaching older ones, or when `meta.next` is empty. It was the last 10 until 2026-11-11; a run with many applications brings more than 10. The date comes from the first date field present (`latest_message_time`, `modified`, …); without one, only the cap applies (field to confirm live).
+- `GET /api/v1/inbox_page/candidate_conversation?limit=20&offset=<n>`: Sortie reads **the whole inbox** (page after page until a short or empty page), then keeps conversations from the **last 14 days**. Verified 2026-11-12:
+  - `meta.next` is always null, so Sortie used to stop after page 1 (20 of 38 conversations).
+  - The order is only roughly by date.
+  - The date is the display label `latest_msg_at` ("Oct 28" this year, "Dec 31, 2025", a time or "Yesterday" when recent). `message_date()` reads it; an unreadable label counts as recent.
+  - 200-page safety stop.
 - **Pending** = the latest message isn't yours. The preview (`latest_message`) prefixes your own messages with "You:" (e.g. "You: done", "You: I've filled the form"); those are ignored.
 - Pending conversations are classified from the preview, which doesn't mark anything read. Instahyre's questionnaire mails start "Thanks for showing interest in working with <company>. As part of the application process…" (previews are cut off mid-word).
 - Questionnaire → its messages are fetched (`GET /api/v1/resume_modal/emails/message?conv_id=<id>`) to find the link `instahyre.com/questionnaire/<questionnaire id>/<opportunity id>` (newest message wins).
