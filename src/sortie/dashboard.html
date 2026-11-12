@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sortie Dashboard</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20rx%3D%228%22%20fill%3D%22%2313203f%22/%3E%3Cpath%20d%3D%22M27%205%20L13.5%2011%20L19%2013%20Z%22%20fill%3D%22%23fff%22/%3E%3Cpath%20d%3D%22M27%205%20L19%2013%20L21%2019%20Z%22%20fill%3D%22%23ff6a33%22/%3E%3Cpath%20d%3D%22M5.5%2026.5%20C%2010%2026%2C%2014.5%2022.5%2C%2018%2015.5%22%20stroke%3D%22%23ff6a33%22%20stroke-width%3D%222.4%22%20stroke-dasharray%3D%220.1%203.6%22%20stroke-linecap%3D%22round%22%20fill%3D%22none%22/%3E%3C/svg%3E">
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --surface-2: #f2f1ed; --border: rgba(11,11,11,.10);
+  --ink: #0b0b0b; --ink-2: #52514e; --muted: #6f6d68; --grid: #e1e0d9; --axis: #c3c2b7;
+  --accent: #2a78d6; --accent-ink: #1c5cab;
+  --brand: #ff5a2e; --brand-2: #ff9a3d; --brand-night: #13203f;  /* identity only, never a data color */
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300;
+  --good: #0ca30c; --good-ink: #006300; --serious: #ec835a; --critical: #d03b3b; --warning: #fab219;
+  --shadow: 0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.04);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321; --border: rgba(255,255,255,.10);
+    --ink: #f0efec; --ink-2: #c3c2b7; --muted: #9a988f; --grid: #2c2c2a; --axis: #383835;
+    --accent: #3987e5; --accent-ink: #86b6ef;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300;
+    --good-ink: #0ca30c; --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321; --border: rgba(255,255,255,.10);
+  --ink: #f0efec; --ink-2: #c3c2b7; --muted: #9a988f; --grid: #2c2c2a; --axis: #383835;
+  --accent: #3987e5; --accent-ink: #86b6ef;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300;
+  --good-ink: #0ca30c; --shadow: none;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--page); color: var(--ink); font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif; }
+a { color: var(--accent-ink); }
+button, input, select { font: inherit; color: inherit; }
+.layout { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+nav { background: var(--surface); border-right: 1px solid var(--border); padding: 20px 12px; position: sticky; top: 0; height: 100vh; }
+.brand { padding: 0 10px 22px; }
+.brand { display: flex; align-items: center; gap: 11px; }
+.brand svg { flex: none; width: 38px; height: 38px; filter: drop-shadow(0 2px 6px rgba(255, 90, 46, .25)); }
+.brand .word { font-weight: 800; font-size: 21px; letter-spacing: -.035em; line-height: 1.05; }
+.brand .word em { font-style: normal; color: var(--brand); }
+.brand small { display: block; white-space: nowrap; font-weight: 600; font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-top: 3px; }
+nav a { position: relative; }
+nav a.on::before { content: ""; position: absolute; left: -12px; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0;
+  background: linear-gradient(var(--brand-2), var(--brand)); }
+nav a { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-radius: 8px; color: var(--ink-2); text-decoration: none; margin-bottom: 2px; }
+nav a:hover { background: var(--surface-2); }
+nav a.on { background: var(--surface-2); color: var(--ink); font-weight: 600; }
+.count { font-size: 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 99px; padding: 0 8px; color: var(--ink-2); }
+nav .foot { position: absolute; bottom: 16px; left: 22px; right: 12px; font-size: 12px; color: var(--muted); }
+nav .foot button { background: none; border: 1px solid var(--border); border-radius: 6px; padding: 2px 8px; cursor: pointer; margin-top: 6px; }
+main { padding: 28px 32px 60px; min-width: 0; }
+h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: -.01em; }
+h2 { font-size: 15px; margin: 0 0 12px; }
+.sub { color: var(--muted); margin: 0 0 22px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.tile, .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); }
+.tile { padding: 14px 16px; }
+.tile .k { color: var(--muted); font-size: 12px; }
+.tile .v { font-size: 26px; font-weight: 650; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.tile .h { font-size: 12px; color: var(--ink-2); }
+a.tile { text-decoration: none; color: inherit; }
+a.tile:hover { border-color: var(--accent); }
+.card { padding: 18px; margin-bottom: 16px; min-width: 0; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th { text-align: left; font-weight: 600; font-size: 12px; color: var(--muted); padding: 8px 10px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+td { padding: 9px 10px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+tr.click { cursor: pointer; }
+tr.click:hover td { background: var(--surface-2); }
+.num { text-align: right; }
+.scroll { overflow-x: auto; }
+.chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; padding: 1px 9px 1px 7px; border-radius: 99px; border: 1px solid var(--border); background: var(--surface-2); white-space: nowrap; color: var(--ink); }
+.chip i { font-style: normal; font-weight: 700; }
+.chip.applied i { color: var(--good); } .chip.failed i { color: var(--critical); } .chip.external i { color: var(--serious); }
+.chip.skipped i, .chip.pending_review i { color: var(--muted); }
+.meter { height: 8px; background: var(--surface-2); border-radius: 99px; overflow: hidden; margin-top: 6px; border: 1px solid var(--border); }
+.meter span { display: block; height: 100%; background: var(--accent); border-radius: 99px; }
+.muted { color: var(--muted); } .ink2 { color: var(--ink-2); }
+.small { font-size: 12px; }
+.trunc { max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; align-items: center; }
+.filters input, .filters select { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; min-width: 0; }
+.filters input[type=search] { flex: 1 1 220px; }
+.btn { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+.btn:hover:not(:disabled) { border-color: var(--accent); }
+.btn:disabled { opacity: .45; cursor: default; }
+.pager { display: flex; gap: 8px; align-items: center; justify-content: flex-end; margin-top: 12px; }
+.bars .row { display: grid; grid-template-columns: minmax(0, 1fr) 46px; gap: 10px; align-items: center; margin-bottom: 9px; }
+.bars .lbl { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bars .track { height: 6px; margin-top: 3px; }
+.bars .track span { display: block; height: 100%; border-radius: 0 4px 4px 0; background: var(--accent); min-width: 2px; }
+.bars .n { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--ink-2); margin: 4px 0 10px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend b { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.chart { position: relative; }
+.chart svg { display: block; width: 100%; height: 220px; overflow: visible; }
+.tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.12); display: none; min-width: 130px; z-index: 5; }
+.tip div { display: flex; justify-content: space-between; gap: 12px; }
+.linkbtn { background: none; border: none; color: var(--accent-ink); cursor: pointer; padding: 0; font-size: 12px; }
+.empty { color: var(--muted); padding: 28px; text-align: center; }
+/* details drawer */
+.shade { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: none; z-index: 10; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(760px, 100%); background: var(--page); border-left: 1px solid var(--border); overflow-y: auto; transform: translateX(100%); transition: transform .18s ease; z-index: 11; padding: 22px 26px 60px; }
+.open .shade { display: block; } .open .drawer { transform: none; }
+.drawer .close { position: sticky; top: 0; float: right; }
+.kv { display: grid; grid-template-columns: 130px 1fr; gap: 6px 12px; margin: 14px 0; }
+.kv .k { color: var(--muted); font-size: 13px; }
+.qa { border-top: 1px solid var(--grid); padding: 10px 0; }
+.qa .q { font-weight: 600; font-size: 13px; }
+.qa .a { white-space: pre-wrap; color: var(--ink-2); }
+.jd { white-space: pre-wrap; font-size: 13px; color: var(--ink-2); max-height: 420px; overflow: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+.shot img { max-width: 100%; border: 1px solid var(--border); border-radius: 10px; }
+pre.log { white-space: pre-wrap; word-break: break-word; font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; max-height: 75vh; overflow: auto; margin: 0; }
+pre.log .ok { color: var(--good-ink); } pre.log .bad { color: var(--critical); } pre.log .hd { font-weight: 700; color: var(--ink); }
+.runs { display: grid; grid-template-columns: 240px 1fr; gap: 16px; }
+.runs > * { min-width: 0; }
+.chip.stage-offer i, .chip.stage-interview i { color: var(--good); } .chip.stage-heard_back i { color: var(--accent); }
+.chip.stage-rejected i { color: var(--critical); } .chip.stage-withdrawn i { color: var(--muted); }
+.stages { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; }
+.stages button { background: var(--surface); border: 1px solid var(--border); border-radius: 99px; padding: 4px 12px; cursor: pointer; font-size: 13px; }
+.stages button:hover { border-color: var(--accent); }
+.stages button.on { background: var(--ink); color: var(--page); border-color: var(--ink); }
+textarea { width: 100%; min-height: 64px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font: inherit; color: inherit; resize: vertical; }
+.timeline { list-style: none; padding: 0; margin: 12px 0 0; }
+.timeline li { padding: 6px 0 6px 14px; border-left: 2px solid var(--grid); margin-left: 4px; font-size: 13px; }
+.funnel .row { display: grid; grid-template-columns: 150px minmax(0, 1fr) 90px; gap: 12px; align-items: center; margin-bottom: 10px; }
+.funnel .track { height: 10px; background: var(--surface-2); border-radius: 0 4px 4px 0; overflow: hidden; }
+.funnel .track span { display: block; height: 100%; background: var(--accent); border-radius: 0 4px 4px 0; min-width: 2px; }
+.funnel .n { text-align: right; font-variant-numeric: tabular-nums; }
+@media (max-width: 860px) { .funnel .row { grid-template-columns: 100px minmax(0, 1fr) 80px; } }
+.runlist a { display: block; padding: 7px 10px; border-radius: 8px; text-decoration: none; color: var(--ink-2); font-size: 13px; }
+.runlist a.on, .runlist a:hover { background: var(--surface-2); color: var(--ink); }
+@media (max-width: 860px) {
+  .layout { grid-template-columns: 1fr; }
+  nav { position: sticky; height: auto; display: flex; gap: 4px; overflow-x: auto; padding: 10px 16px; border-right: 0; border-bottom: 1px solid var(--border); z-index: 4; }
+  nav .foot { display: none; }
+  .brand { padding: 0 6px 0 0; } .brand > div { display: none; } .brand svg { width: 32px; height: 32px; }
+  nav a.on::before { left: 10px; right: 10px; top: auto; bottom: 0; width: auto; height: 3px; border-radius: 3px 3px 0 0;
+    background: linear-gradient(90deg, var(--brand-2), var(--brand)); }
+  nav a { white-space: nowrap; }
+  main { padding: 20px 16px 60px; }
+  .grid2, .runs { grid-template-columns: 1fr; }
+  .kv { grid-template-columns: 1fr; }
+  .trunc { max-width: 200px; }
+  .drawer { padding: 18px 16px 60px; }
+}
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav>
+    <div class="brand"><svg viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="burn" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#ff9a3d"/><stop offset="1" stop-color="#ff4d2e"/></linearGradient></defs>
+      <rect width="32" height="32" rx="8" fill="#13203f"/>
+      <path d="M5.5 26.5 C 10 26, 14.5 22.5, 18 15.5" stroke="url(#burn)" stroke-width="2" stroke-dasharray="0.1 3.2" stroke-linecap="round" fill="none"/>
+      <path d="M27 5 L13.5 11 L19 13 Z" fill="#fff"/><path d="M27 5 L19 13 L21 19 Z" fill="url(#burn)"/></svg>
+      <div><div class="word">Sortie<em>.</em></div><small>Job mission control</small></div></div>
+    <a href="#overview" data-page="overview">Overview</a>
+    <a href="#applications" data-page="applications">Applications</a>
+    <a href="#needs-you" data-page="needs-you">Needs you <span class="count" id="c-needs">·</span></a>
+    <a href="#followups" data-page="followups">Follow-ups <span class="count" id="c-follow">·</span></a>
+    <a href="#answers" data-page="answers">Saved answers</a>
+    <a href="#runs" data-page="runs">Run logs</a>
+    <div class="foot"><span id="updated"></span><br><button id="theme" type="button">Theme: auto</button></div>
+  </nav>
+  <main id="main"></main>
+</div>
+<div id="drawer-root"><div class="shade" id="shade"></div><aside class="drawer" id="drawer"></aside></div>
+
+<script>
+"use strict";
+const $ = (s, el = document) => el.querySelector(s);
+const SERIES = ["--s1", "--s2", "--s3", "--s4", "--s5", "--s6"];
+const STATUS = {applied: ["✓", "Applied"], skipped: ["–", "Skipped"], failed: ["✕", "Failed"],
+                external: ["↗", "Company site"], pending_review: ["…", "Pending review"]};
+const STAGE = {heard_back: ["✉", "Heard back"], interview: ["☎", "Interview"], offer: ["★", "Offer"],
+               rejected: ["✕", "Rejected"], withdrawn: ["↩", "Withdrawn"]};
+let siteOrder = [];          // fixed order, so a site keeps its color however the data changes
+let appState = {site: "", status: "", q: "", from: "", to: "", stage: "", offset: 0};
+
+function esc(v) {
+  return String(v ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+}
+function safeUrl(u) { return /^https?:\/\//i.test(u || "") ? u : ""; }
+function chip(status) {
+  const [icon, label] = STATUS[status] || ["•", status];
+  return `<span class="chip ${esc(status)}"><i aria-hidden="true">${icon}</i>${esc(label)}</span>`;
+}
+function stageChip(stage) {
+  if (!stage) return "";
+  const [icon, label] = STAGE[stage] || ["•", stage];
+  return `<span class="chip stage-${esc(stage)}"><i aria-hidden="true">${icon}</i>${esc(label)}</span>`;
+}
+function fmtDate(s) {
+  if (!s) return "";
+  const d = new Date(s.length === 10 ? s + "T00:00:00" : s);
+  return isNaN(d) ? esc(s) : d.toLocaleString(undefined, {month: "short", day: "numeric", hour: s.length > 10 ? "2-digit" : undefined, minute: s.length > 10 ? "2-digit" : undefined});
+}
+const n = v => Number(v || 0).toLocaleString();
+async function api(path) {
+  const r = await fetch("/api/" + path);
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.error || r.statusText);
+  return data;
+}
+function color(site) {
+  let i = siteOrder.indexOf(site);
+  if (i < 0) { siteOrder.push(site); i = siteOrder.length - 1; }
+  return `var(${SERIES[i % SERIES.length]})`;
+}
+
+/* ---------- theme ---------- */
+const themes = ["auto", "light", "dark"];
+function applyTheme(t) {
+  if (t === "auto") document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.setAttribute("data-theme", t);
+  $("#theme").textContent = "Theme: " + t;
+}
+let theme = "auto";
+try { theme = localStorage.getItem("sortie-theme") || "auto"; } catch (e) {}
+applyTheme(theme);
+$("#theme").onclick = () => {
+  theme = themes[(themes.indexOf(theme) + 1) % 3];
+  try { localStorage.setItem("sortie-theme", theme); } catch (e) {}
+  applyTheme(theme);
+};
+
+/* ---------- routing ---------- */
+const pages = {overview, applications, "needs-you": needsYou, followups, answers, runs};
+function route() {
+  closeDrawer();
+  const [page, qs] = (location.hash.slice(1) || "overview").split("?");
+  document.querySelectorAll("nav a").forEach(a => a.classList.toggle("on", a.dataset.page === page));
+  if (page === "applications" && qs !== undefined) {
+    const p = new URLSearchParams(qs);
+    appState = {site: p.get("site") || "", status: p.get("status") || "", q: p.get("q") || "",
+                from: p.get("from") || "", to: p.get("to") || "", stage: p.get("stage") || "", offset: 0};
+  }
+  (pages[page] || overview)().catch(err => { $("#main").innerHTML = `<div class="card empty">Couldn't load: ${esc(err.message)}</div>`; });
+}
+window.addEventListener("hashchange", route);
+
+/* ---------- overview ---------- */
+async function overview() {
+  const d = await api("overview");
+  siteOrder = d.sites.map(s => s.site);
+  $("#c-needs").textContent = d.needs_you;
+  $("#c-follow").textContent = d.followups_open;
+  const today = d.sites.reduce((a, s) => a + (s.today.applied || 0), 0);
+  const handled = Object.values(d.totals).reduce((a, b) => a + b, 0);
+  const t = d.totals;
+  const tile = (k, v, h, href) => `<${href ? `a href="${href}"` : "div"} class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="h">${h || "&nbsp;"}</div></${href ? "a" : "div"}>`;
+  const sitesRows = d.sites.map(s => {
+    const a = s.today.applied || 0, pct = Math.min(100, s.cap ? a / s.cap * 100 : 0);
+    const others = ["skipped", "failed", "external"].map(st => s.today[st]
+      ? `<a href="#applications?site=${esc(s.site)}&status=${st}&from=${d.today}&to=${d.today}">${n(s.today[st])} ${st}</a>` : "").filter(Boolean).join(" · ");
+    return `<tr><td><span class="chip"><b style="width:9px;height:9px;border-radius:3px;background:${color(s.site)}"></b>${esc(s.site)}</span></td>
+      <td style="min-width:150px"><b>${n(a)}</b> <span class="muted">/ ${n(s.cap)}</span><div class="meter"><span style="width:${pct}%"></span></div></td>
+      <td class="small ink2">${others || '<span class="muted">—</span>'}</td>
+      <td class="num"><a href="#applications?site=${esc(s.site)}&status=applied">${n(s.all.applied)}</a></td>
+      <td class="num"><a href="#applications?site=${esc(s.site)}&status=skipped">${n(s.all.skipped)}</a></td>
+      <td class="num"><a href="#applications?site=${esc(s.site)}&status=failed">${n(s.all.failed)}</a></td>
+      <td class="num"><a href="#applications?site=${esc(s.site)}&status=external">${n(s.all.external)}</a></td></tr>`;
+  }).join("");
+  $("#main").innerHTML = `
+    <h1>Overview</h1><p class="sub">Everything Sortie has handled${d.since ? " since " + fmtDate(d.since) : ""}. Updates every 30 seconds.</p>
+    <div class="tiles">
+      ${tile("Applied today", n(today), "across all sites", `#applications?status=applied&from=${d.today}&to=${d.today}`)}
+      ${tile("Applied, all time", n(t.applied), `${handled ? Math.round((t.applied || 0) / handled * 100) : 0}% of jobs handled`, "#applications?status=applied")}
+      ${tile("Jobs handled", n(handled), `${n(t.skipped)} skipped · ${n(t.external)} company site`, "#applications?")}
+      ${tile("Failed", n(t.failed), "latest attempt failed", "#applications?status=failed")}
+      ${tile("Needs you", n(d.needs_you), "only you can do these", "#needs-you")}
+      ${tile("Open follow-ups", n(d.followups_open), "watching for questionnaires", "#followups")}
+      ${tile("Average fit (applied)", d.fit.avg ?? "—", d.fit.n ? `over ${n(d.fit.n)} scored jobs` : "no scores yet")}
+    </div>
+    <div class="card"><h2>Today by site</h2><div class="scroll"><table>
+      <thead><tr><th>Site</th><th>Applied today / cap</th><th>Other outcomes today</th><th class="num">Applied</th><th class="num">Skipped</th><th class="num">Failed</th><th class="num">Company site</th></tr></thead>
+      <tbody>${sitesRows}</tbody></table></div>
+      <p class="small muted" style="margin:8px 0 0">The last four columns are all time; each job counts once, by its latest attempt.</p></div>
+    <div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap">
+      <h2>Applications per day</h2><button class="linkbtn" id="tbl-toggle" type="button">Show as table</button></div>
+      <div id="daily"></div></div>
+    ${outcomeCard(d.outcomes)}
+    <div class="grid2">
+      <div class="card"><h2>Why jobs were skipped</h2>${reasonBars(d.reasons.skipped)}</div>
+      <div class="card"><h2>Why applications failed</h2>${reasonBars(d.reasons.failed)}</div>
+    </div>`;
+  dailyChart(d.daily, d.today);
+  lastDaily = [d.daily, d.today];
+}
+let lastDaily = null, resizeTimer;
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  // redraw at the new width while the chart (not its table) is showing
+  resizeTimer = setTimeout(() => { if (lastDaily && $("#daily-table")?.hidden) dailyChart(...lastDaily); }, 150);
+});
+
+function outcomeCard(o) {
+  const f = o.funnel, base = Math.max(1, f.applied);
+  const pct = v => f.applied ? Math.round(v / f.applied * 1000) / 10 + "%" : "—";
+  const row = (label, v, href) => `<div class="row"><div>${href ? `<a href="${href}">${label}</a>` : label}</div>
+    <div class="track"><span style="width:${v / base * 100}%"></span></div><div class="n"><b>${n(v)}</b> <span class="muted small">${pct(v)}</span></div></div>`;
+  const rateTable = (title, rows) => `<div><h2 style="margin-top:6px">${title}</h2><div class="scroll"><table>
+    <thead><tr><th></th><th class="num">Applied</th><th class="num">Replied</th><th class="num">Reply rate</th><th class="num">Interviews</th><th class="num">Interview rate</th></tr></thead>
+    <tbody>${rows.map(r => `<tr><td>${esc(r.key)}</td><td class="num">${n(r.applied)}</td><td class="num">${n(r.replied)}</td>
+      <td class="num">${r.reply_rate ?? "—"}%</td><td class="num">${n(r.interviewed)}</td><td class="num">${r.interview_rate ?? "—"}%</td></tr>`).join("")}</tbody></table></div></div>`;
+  const none = !f.replied && !f.interviewed;
+  return `<div class="card"><h2>After applying</h2>
+    ${none ? `<p class="small muted" style="margin-top:-6px">Nothing marked yet. Open an applied job and set its stage when a company replies; this fills in as you go.</p>` : ""}
+    <div class="funnel">
+      ${row("Applied", f.applied, "#applications?status=applied")}
+      ${row("Heard back", f.replied, "#applications?stage=any")}
+      ${row("Interview", f.interviewed, "#applications?stage=interview")}
+      ${row("Offer", f.offers, "#applications?stage=offer")}
+      ${row("Rejected", f.rejected, "#applications?stage=rejected")}
+    </div>
+    ${none ? "" : `<div class="grid2" style="margin-top:8px">${rateTable("By site", o.by_site)}${rateTable("By fit score", o.by_fit)}</div>`}</div>`;
+}
+
+function reasonBars(list) {
+  if (!list.length) return `<div class="empty">Nothing here.</div>`;
+  const max = list[0][1];
+  return `<div class="bars">${list.map(([label, count]) => `<div class="row"><div><div class="lbl" title="${esc(label)}">${esc(label)}</div>
+    <div class="track"><span style="width:${count / max * 100}%"></span></div></div><div class="n">${n(count)}</div></div>`).join("")}</div>`;
+}
+
+function dailyChart(rows, todayIso) {
+  const days = [];
+  const end = new Date(todayIso + "T00:00:00");
+  const first = rows.length ? new Date(rows[0].day + "T00:00:00") : end;
+  const span = Math.min(30, Math.max(14, Math.round((end - first) / 864e5) + 1));  // since the first day with data, 14-30 days
+  for (let i = span - 1; i >= 0; i--) {  // local dates (not toISOString, which is UTC) to match the server's days
+    const d = new Date(end); d.setDate(d.getDate() - i);
+    days.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+  }
+  const by = {}; const sites = [];
+  rows.forEach(r => { (by[r.day] ||= {})[r.site] = r.n; if (!sites.includes(r.site)) sites.push(r.site); });
+  sites.sort((a, b) => siteOrder.indexOf(a) - siteOrder.indexOf(b));
+  const host = $("#daily");
+  const totalOf = day => sites.reduce((a, s) => a + ((by[day] || {})[s] || 0), 0);
+  const peak = Math.max(1, ...days.map(totalOf));
+  const mag = 10 ** Math.floor(Math.log10(peak / 4 || 1));
+  const nice = [1, 2, 2.5, 5, 10].map(f => f * mag).find(s => s * 4 >= peak) || mag * 10;  // 4-5 round gridlines
+  const max = Math.ceil(peak / nice) * nice;
+  if (!rows.length) { host.innerHTML = `<div class="empty">No applications in the last 30 days.</div>`; return; }
+  const legend = sites.length > 1 ? `<div class="legend">${sites.map(s => `<span><b style="background:${color(s)}"></b>${esc(s)}</span>`).join("")}</div>` : "";
+  const W = Math.max(300, host.clientWidth || 900), H = 220, L = 34, R = 8, T = 10, B = 26;
+  const step = (W - L - R) / days.length, bw = Math.max(3, step - 4);
+  const y = v => T + (H - T - B) * (1 - v / max);
+  let svg = "";
+  for (let v = 0; v <= max; v += nice) svg += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)" stroke-width="1"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="var(--muted)">${v}</text>`;
+  days.forEach((day, i) => {
+    let acc = 0; const x = L + i * step + (step - bw) / 2;
+    const segs = sites.map(s => [s, (by[day] || {})[s] || 0]).filter(([, v]) => v);
+    segs.forEach(([s, v], k) => {
+      const y0 = y(acc), y1 = y(acc + v); acc += v;
+      const top = k === segs.length - 1;
+      const h = Math.max(0, y0 - y1 - (top ? 0 : 2));  // 2px surface gap between stacked segments
+      svg += top
+        ? `<path d="M${x},${y0} V${y1 + Math.min(4, h)} q0,-4 4,-4 h${bw - 8} q4,0 4,4 V${y0} Z" fill="${color(s)}"/>`
+        : `<rect x="${x}" y="${y0 - h}" width="${bw}" height="${h}" fill="${color(s)}"/>`;
+    });
+    const every = Math.ceil(days.length / Math.max(2, Math.floor((W - L) / 70)));  // labels about 70px apart
+    if ((days.length - 1 - i) % every === 0) svg += `<text x="${x + bw / 2}" y="${H - 8}" text-anchor="middle" font-size="11" fill="var(--muted)">${fmtDate(day)}</text>`;
+    svg += `<rect class="hit" data-i="${i}" x="${L + i * step}" y="${T}" width="${step}" height="${H - T - B}" fill="transparent"/>`;
+  });
+  svg += `<line x1="${L}" x2="${W - R}" y1="${y(0)}" y2="${y(0)}" stroke="var(--axis)"/>`;
+  const table = `<div class="scroll" id="daily-table" hidden><table><thead><tr><th>Day</th>${sites.map(s => `<th class="num">${esc(s)}</th>`).join("")}<th class="num">Total</th></tr></thead><tbody>${
+    days.filter(totalOf).reverse().map(day => `<tr><td>${fmtDate(day)}</td>${sites.map(s => `<td class="num">${n((by[day] || {})[s])}</td>`).join("")}<td class="num"><b>${n(totalOf(day))}</b></td></tr>`).join("")}</tbody></table></div>`;
+  host.innerHTML = `${legend}<div class="chart" id="daily-chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Applications per day">${svg}</svg><div class="tip" id="tip"></div></div>${table}`;
+  const tip = $("#tip"), chart = $("#daily-chart");
+  chart.addEventListener("mousemove", e => {
+    const hit = e.target.closest(".hit");
+    if (!hit) { tip.style.display = "none"; return; }
+    const day = days[+hit.dataset.i];
+    tip.innerHTML = `<b>${fmtDate(day)}</b>${sites.map(s => `<div><span>${esc(s)}</span><span>${n((by[day] || {})[s])}</span></div>`).join("")}<div style="border-top:1px solid var(--grid);margin-top:4px;padding-top:4px"><span>Total</span><b>${n(totalOf(day))}</b></div>`;
+    tip.style.display = "block";
+    const box = chart.getBoundingClientRect();
+    const left = Math.min(e.clientX - box.left + 12, box.width - tip.offsetWidth - 4);
+    tip.style.left = Math.max(0, left) + "px"; tip.style.top = Math.max(0, e.clientY - box.top - tip.offsetHeight - 10) + "px";
+  });
+  chart.addEventListener("mouseleave", () => tip.style.display = "none");
+  chart.addEventListener("click", e => {
+    const hit = e.target.closest(".hit"); if (!hit) return;
+    const day = days[+hit.dataset.i]; location.hash = `applications?status=applied&from=${day}&to=${day}`;
+  });
+  $("#tbl-toggle").onclick = () => {
+    const t = $("#daily-table"), showTable = t.hidden;
+    t.hidden = !showTable; chart.hidden = showTable;
+    $("#tbl-toggle").textContent = showTable ? "Show as chart" : "Show as table";
+  };
+}
+
+/* ---------- applications ---------- */
+async function applications() {
+  if (!siteOrder.length) siteOrder = (await api("overview")).sites.map(s => s.site);
+  const opt = (v, label, cur) => `<option value="${esc(v)}" ${v === cur ? "selected" : ""}>${esc(label)}</option>`;
+  $("#main").innerHTML = `<h1>Applications</h1><p class="sub">Every job Sortie handled, newest first. Click a row for its details, answers and screenshot.</p>
+    <div class="filters">
+      <input type="search" id="f-q" placeholder="Search title, company, location, reason" value="${esc(appState.q)}">
+      <select id="f-site">${opt("", "All sites", appState.site)}${siteOrder.map(s => opt(s, s, appState.site)).join("")}</select>
+      <select id="f-status">${opt("", "All outcomes", appState.status)}${Object.entries(STATUS).map(([k, [, l]]) => opt(k, l, appState.status)).join("")}</select>
+      <select id="f-stage">${opt("", "Any stage", appState.stage)}${opt("any", "Any reply", appState.stage)}${opt("none", "Applied, no reply yet", appState.stage)}${Object.entries(STAGE).map(([k, [, l]]) => opt(k, l, appState.stage)).join("")}</select>
+      <label class="small muted">From <input type="date" id="f-from" value="${esc(appState.from)}"></label>
+      <label class="small muted">To <input type="date" id="f-to" value="${esc(appState.to)}"></label>
+      <button class="btn" id="f-clear" type="button">Clear</button>
+    </div>
+    <div class="card" style="padding:6px 8px"><div id="app-table"></div></div>`;
+  let timer;
+  const update = () => { appState.offset = 0; loadApps(); };
+  $("#f-q").oninput = e => { appState.q = e.target.value; clearTimeout(timer); timer = setTimeout(update, 250); };
+  $("#f-site").onchange = e => { appState.site = e.target.value; update(); };
+  $("#f-status").onchange = e => { appState.status = e.target.value; update(); };
+  $("#f-stage").onchange = e => { appState.stage = e.target.value; update(); };
+  $("#f-from").onchange = e => { appState.from = e.target.value; update(); };
+  $("#f-to").onchange = e => { appState.to = e.target.value; update(); };
+  $("#f-clear").onclick = () => { appState = {site: "", status: "", q: "", from: "", to: "", stage: "", offset: 0}; history.replaceState(null, "", "#applications"); applications(); };
+  await loadApps();
+}
+
+async function loadApps() {
+  const p = new URLSearchParams({site: appState.site, status: appState.status, q: appState.q, from: appState.from, to: appState.to, stage: appState.stage, offset: appState.offset});
+  const d = await api("applications?" + p);
+  const host = $("#app-table");
+  if (!host) return;
+  if (!d.rows.length) { host.innerHTML = `<div class="empty">No applications match.</div>`; return; }
+  host.innerHTML = `<div class="scroll"><table><thead><tr><th>When</th><th>Site</th><th>Company</th><th>Role</th><th>Outcome</th><th>Stage</th><th class="num">Fit</th><th>Reason</th></tr></thead><tbody>${
+    d.rows.map(r => `<tr class="click" data-id="${r.id}"><td class="small ink2" style="white-space:nowrap">${fmtDate(r.created_at)}</td>
+      <td class="small">${esc(r.site)}</td><td><b>${esc(r.company)}</b></td><td class="trunc" title="${esc(r.title)}">${esc(r.title)}</td>
+      <td>${chip(r.status)}</td><td>${stageChip(r.stage)}</td><td class="num">${r.fit_score ?? '<span class="muted">—</span>'}</td>
+      <td class="small ink2 trunc" title="${esc(r.reason)}">${esc(r.reason) || (r.has_answers ? '<span class="muted">answered questions</span>' : "")}</td></tr>`).join("")}</tbody></table></div>
+    <div class="pager"><span class="small muted">${n(d.offset + 1)}–${n(d.offset + d.rows.length)} of ${n(d.total)}</span>
+      <button class="btn" id="prev" type="button" ${d.offset ? "" : "disabled"}>Previous</button>
+      <button class="btn" id="next" type="button" ${d.offset + d.rows.length < d.total ? "" : "disabled"}>Next</button></div>`;
+  host.querySelectorAll("tr.click").forEach(tr => tr.onclick = () => openApp(tr.dataset.id));
+  $("#prev").onclick = () => { appState.offset = Math.max(0, d.offset - d.limit); loadApps(); };
+  $("#next").onclick = () => { appState.offset = d.offset + d.limit; loadApps(); };
+}
+
+/* ---------- details drawer ---------- */
+async function openApp(id) {
+  const a = await api("application/" + id);
+  const url = safeUrl(a.url);
+  const answers = Object.entries(a.answers || {});
+  $("#drawer").innerHTML = `<button class="btn close" type="button" id="close">Close</button>
+    <div class="small muted">${esc(a.site)} · ${fmtDate(a.created_at)}</div>
+    <h1 style="margin-top:4px">${esc(a.title)}</h1>
+    <div class="ink2" style="font-size:15px">${esc(a.company)}${a.location ? " · " + esc(a.location) : ""}</div>
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">${chip(a.status)}${a.fit_score != null ? `<span class="chip">Fit ${a.fit_score}</span>` : ""}
+      ${url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">Open the job ↗</a>` : ""}</div>
+    <div class="kv">
+      ${a.reason ? `<div class="k">Reason</div><div>${esc(a.reason)}</div>` : ""}
+      ${a.experience ? `<div class="k">Experience</div><div>${esc(a.experience)}</div>` : ""}
+      ${a.salary ? `<div class="k">Salary</div><div>${esc(a.salary)}</div>` : ""}
+      <div class="k">First seen</div><div>${fmtDate(a.first_seen_at)}</div>
+      ${a.followup ? `<div class="k">Follow-up</div><div>${esc(a.followup.status)}${a.followup.note ? " · " + esc(a.followup.note) : ""}</div>` : ""}
+    </div>
+    ${a.status === "applied" || a.outcomes.length ? outcomePanel(a) : ""}
+    ${answers.length ? `<div class="card"><h2>Questions answered (${answers.length})</h2>${answers.map(([q, v]) => `<div class="qa"><div class="q">${esc(q)}</div><div class="a">${esc(Array.isArray(v) ? v.join(", ") : v)}</div></div>`).join("")}</div>` : ""}
+    ${a.screenshot ? `<div class="card shot"><h2>Screenshot</h2><a href="/screenshots/${encodeURIComponent(a.screenshot)}" target="_blank" rel="noopener"><img src="/screenshots/${encodeURIComponent(a.screenshot)}" alt="Screenshot of the page after this attempt" loading="lazy"></a></div>` : ""}
+    ${a.attempts.length > 1 ? `<div class="card"><h2>Attempts</h2><table><tbody>${a.attempts.map(t => `<tr><td class="small ink2">${fmtDate(t.created_at)}</td><td>${chip(t.status)}</td><td class="small ink2">${esc(t.reason)}</td></tr>`).join("")}</tbody></table></div>` : ""}
+    ${a.jd ? `<h2>Job description</h2><div class="jd">${esc(a.jd)}</div>` : ""}`;
+  document.getElementById("drawer-root").classList.add("open");
+  $("#close").onclick = closeDrawer;
+  bindOutcome(a);
+  $("#drawer").scrollTop = 0;
+}
+function outcomePanel(a) {
+  return `<div class="card"><h2>After applying ${stageChip(a.stage)}</h2>
+    <div class="stages" id="stages">${Object.entries(STAGE).map(([k, [icon, l]]) => `<button type="button" data-stage="${k}" class="${a.stage === k ? "on" : ""}">${icon} ${l}</button>`).join("")}</div>
+    <textarea id="o-note" placeholder="Note (optional): who replied, interview date, what they asked…" maxlength="2000"></textarea>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">
+      <button class="btn" id="o-save" type="button" disabled>Save</button>
+      ${a.outcomes.length ? `<button class="linkbtn" id="o-clear" type="button">Clear outcome</button>` : ""}
+      <span class="small muted" id="o-msg">Pick a stage, then Save.</span></div>
+    ${a.outcomes.length ? `<ul class="timeline">${a.outcomes.slice().reverse().map(e => `<li>${stageChip(e.stage)} <span class="muted small">${fmtDate(e.created_at)}</span>${e.note ? `<div class="ink2" style="white-space:pre-wrap;margin-top:3px">${esc(e.note)}</div>` : ""}</li>`).join("")}</ul>` : ""}</div>`;
+}
+function bindOutcome(a) {
+  if (!$("#stages")) return;
+  let picked = null;
+  $("#stages").onclick = e => {
+    const b = e.target.closest("button"); if (!b) return;
+    picked = b.dataset.stage;
+    document.querySelectorAll("#stages button").forEach(x => x.classList.toggle("on", x === b));
+    $("#o-save").disabled = false; $("#o-msg").textContent = "";
+  };
+  const send = async (stage, note) => {
+    $("#o-msg").textContent = "Saving…";
+    const r = await fetch(`/api/application/${a.id}/outcome`, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({stage, note})});
+    if (!r.ok) { $("#o-msg").textContent = "Couldn't save: " + ((await r.json().catch(() => ({}))).error || r.status); return; }
+    await openApp(a.id);
+    if ((location.hash.slice(1) || "overview").startsWith("applications")) loadApps();
+  };
+  $("#o-save").onclick = () => picked && send(picked, $("#o-note").value);
+  if ($("#o-clear")) $("#o-clear").onclick = () => { if (confirm("Remove this job's outcome and its timeline?")) send("none", ""); };
+}
+function closeDrawer() { document.getElementById("drawer-root").classList.remove("open"); }
+$("#shade").onclick = closeDrawer;
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeDrawer(); });
+
+/* ---------- other pages ---------- */
+async function needsYou() {
+  const rows = await api("needs-you");
+  $("#c-needs").textContent = rows.length;
+  $("#main").innerHTML = `<h1>Needs you</h1><p class="sub">Things Sortie left for you: voice or video questions, recruiter messages, uploads.</p>
+    ${rows.length ? `<div class="card scroll"><table><thead><tr><th>When</th><th>Site</th><th>What</th><th>Job</th><th></th></tr></thead><tbody>${rows.map(r => `<tr>
+      <td class="small ink2" style="white-space:nowrap">${fmtDate(r.created_at)}</td><td class="small">${esc(r.site)}</td><td>${esc(r.what)}</td>
+      <td>${esc([r.company, r.title].filter(Boolean).join(" — "))}</td><td>${safeUrl(r.url) ? `<a href="${esc(r.url)}" target="_blank" rel="noopener noreferrer">Open ↗</a>` : ""}</td></tr>`).join("")}</tbody></table></div>`
+    : `<div class="card empty">Nothing needs you right now.</div>`}`;
+}
+
+async function followups() {
+  const rows = await api("followups");
+  $("#c-follow").textContent = rows.filter(r => r.status === "open").length;
+  $("#main").innerHTML = `<h1>Follow-ups</h1><p class="sub">Applications Sortie watches for recruiter questionnaires, for ${14} days after applying.</p>
+    ${rows.length ? `<div class="card scroll"><table><thead><tr><th>Site</th><th>Company</th><th>Role</th><th>Status</th><th>Note</th><th>Updated</th></tr></thead><tbody>${rows.map(r => `<tr>
+      <td class="small">${esc(r.site)}</td><td><b>${esc(r.company)}</b></td><td>${esc(r.title)}</td>
+      <td><span class="chip">${esc(r.status)}</span></td><td class="small ink2">${esc(r.note)}</td><td class="small ink2" style="white-space:nowrap">${fmtDate(r.updated_at)}</td></tr>`).join("")}</tbody></table></div>`
+    : `<div class="card empty">No follow-ups tracked yet.</div>`}`;
+}
+
+async function answers() {
+  const rows = await api("answers");
+  const render = q => {
+    const ql = q.toLowerCase();
+    const shown = rows.filter(r => !ql || (r.question + " " + r.answer).toLowerCase().includes(ql));
+    $("#ans").innerHTML = shown.length ? `<table><thead><tr><th>Question</th><th>Your answer</th><th>Saved</th></tr></thead><tbody>${shown.map(r => `<tr>
+      <td>${esc(r.question)}${r.options.length ? `<div class="small muted">Options: ${esc(r.options.join(" · "))}</div>` : ""}</td>
+      <td style="white-space:pre-wrap">${esc(Array.isArray(r.answer) ? r.answer.join(", ") : r.answer)}</td><td class="small ink2" style="white-space:nowrap">${esc(r.answered)}</td></tr>`).join("")}</tbody></table>`
+      : `<div class="empty">No saved answers match.</div>`;
+  };
+  $("#main").innerHTML = `<h1>Saved answers</h1><p class="sub">Your own answers from <code>config/answers.yaml</code> (${n(rows.length)}). Sortie reuses them for the same and reworded questions; edit the file to change one.</p>
+    <div class="filters"><input type="search" id="a-q" placeholder="Search questions and answers"></div><div class="card scroll" id="ans"></div>`;
+  render("");
+  $("#a-q").oninput = e => render(e.target.value);
+}
+
+async function runs() {
+  const list = await api("runs");
+  $("#main").innerHTML = `<h1>Run logs</h1><p class="sub">Full logs of every <code>sortie run</code>, newest first.</p>
+    ${list.length ? `<div class="runs"><div class="card runlist" style="padding:8px;max-height:75vh;overflow:auto">${list.map((r, i) => `<a href="#runs" data-name="${esc(r.name)}" class="${i ? "" : "on"}">${esc(r.name.replace(/^run-|\.log$/g, ""))}<br><span class="small muted">${fmtDate(r.modified)} · ${Math.max(1, Math.round(r.size / 1024))} KB</span></a>`).join("")}</div><div id="log"></div></div>`
+      : `<div class="card empty">No run logs yet.</div>`}`;
+  const show = async name => {
+    document.querySelectorAll(".runlist a").forEach(a => a.classList.toggle("on", a.dataset.name === name));
+    const d = await api("runs/" + encodeURIComponent(name));
+    $("#log").innerHTML = `<pre class="log">${esc(d.text).split("\n").map(line =>
+      /\bAPPLIED\b/.test(line) ? `<span class="ok">${line}</span>` : /FAILED|ERROR|WARNING/.test(line) ? `<span class="bad">${line}</span>` : /===/.test(line) ? `<span class="hd">${line}</span>` : line).join("\n")}</pre>`;
+  };
+  document.querySelectorAll(".runlist a").forEach(a => a.onclick = e => { e.preventDefault(); show(a.dataset.name); });
+  if (list.length) show(list[0].name);
+}
+
+/* ---------- live refresh ---------- */
+function stamp() { $("#updated").textContent = "Updated " + new Date().toLocaleTimeString(undefined, {hour: "2-digit", minute: "2-digit", second: "2-digit"}); }
+setInterval(() => {
+  if (document.hidden || document.getElementById("drawer-root").classList.contains("open")) return;
+  const page = (location.hash.slice(1) || "overview").split("?")[0];
+  if (page === "overview") overview().then(stamp).catch(() => {});
+  else if (page === "applications") loadApps().then(stamp).catch(() => {});
+  else api("overview").then(d => { $("#c-needs").textContent = d.needs_you; $("#c-follow").textContent = d.followups_open; }).catch(() => {});
+}, 30000);
+api("overview").then(d => { $("#c-needs").textContent = d.needs_you; $("#c-follow").textContent = d.followups_open; }).catch(() => {});
+route(); stamp();
+</script>
+</body>
+</html>

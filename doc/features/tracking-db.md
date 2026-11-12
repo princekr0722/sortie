@@ -8,6 +8,7 @@ Never apply twice, keep a log of every decision, and feed reports.
 ## Tables
 - **jobs** — `site`, `site_job_id` (unique together), `url`, `title`, `company`, `location`, `experience`, `salary`, `jd`, `first_seen_at`.
 - **applications** — `job_id`, `status` (`applied` / `skipped` / `failed` / `external` / `pending_review`), `reason`, `fit_score`, `answers_json`, `screenshot_path`, `created_at`.
+- **outcome_events** (2026-11-12) — `job_id`, `stage` (`heard_back` / `interview` / `offer` / `rejected` / `withdrawn`), `note`, `created_at`. What happened after applying, set by you in the dashboard; a job's stage is its latest event. See [dashboard.md](dashboard.md).
 - (Your answers to screening questions moved to `config/answers.yaml` on 2026-11-05; the old `answer_cache` table is no longer used.)
 
 ## Uses

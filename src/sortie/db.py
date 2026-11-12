@@ -61,6 +61,13 @@ CREATE TABLE IF NOT EXISTS followups (
     updated_at TEXT NOT NULL,
     UNIQUE (site, site_job_id)
 );
+CREATE TABLE IF NOT EXISTS outcome_events (  -- what happened after applying, set in the dashboard
+    id INTEGER PRIMARY KEY,
+    job_id INTEGER NOT NULL REFERENCES jobs(id),
+    stage TEXT NOT NULL,
+    note TEXT,
+    created_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS done_questionnaires (
     site TEXT NOT NULL,
     questionnaire_id TEXT NOT NULL,

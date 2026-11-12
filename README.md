@@ -56,6 +56,7 @@ Then:
 .venv/bin/sortie run --sites naukri --auto               # applies on its own, within daily caps
 .venv/bin/sortie run --sites naukri --dry-run            # never submits, records nothing
 .venv/bin/sortie report                                  # today's applied / cap per site, and what needs you
+.venv/bin/sortie dashboard                               # local web page: every application with its answers and screenshot, logs; mark replies and interviews
 .venv/bin/sortie retry naukri                            # failed jobs get fresh attempts (after a fix)
 ```
 Several sites run one after another: `--sites naukri,instahyre,cutshort,wellfound` (default: all enabled sites).

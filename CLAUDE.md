@@ -5,7 +5,7 @@ Sortie finds jobs on Indian job portals, scores them against the user's resume, 
 ## Commands
 ```bash
 .venv/bin/pytest -q                                      # tests (must pass before finishing any change)
-.venv/bin/sortie init | login <site> | report
+.venv/bin/sortie init | login <site> | report | dashboard
 .venv/bin/sortie run --sites naukri --review --limit 3   # --auto, --dry-run, --headless
 .venv/bin/pip install -e ".[dev]"                        # after changing pyproject / moving the package
 ```

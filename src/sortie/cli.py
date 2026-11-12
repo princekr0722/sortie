@@ -59,6 +59,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     report = sub.add_parser("report", help="application counts")
     report.add_argument("--date", type=date.fromisoformat, default=None, help="YYYY-MM-DD, default: today")
+
+    dash = sub.add_parser("dashboard", help="open a local web page with everything Sortie has recorded")
+    dash.add_argument("--port", type=int, default=8765)
+    dash.add_argument("--no-browser", action="store_true", help="don't open the browser")
     return parser
 
 
@@ -151,6 +155,9 @@ def main() -> None:
         asyncio.run(_run(args))
     elif args.command == "login":
         asyncio.run(_login(args))
+    elif args.command == "dashboard":
+        from sortie.dashboard import serve
+        serve(load_search().daily_caps, args.port, not args.no_browser)
     elif args.command == "retry":
         db = Database()
         try:
