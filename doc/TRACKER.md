@@ -2,7 +2,7 @@
 
 Status: ⬜ todo · 🟨 in progress · ✅ done · ⛔ blocked
 
-_Last updated: 2026-11-10_
+_Last updated: 2026-11-12_
 
 ## Phase 1 — Core + Naukri, Instahyre, CutShort
 

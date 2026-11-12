@@ -44,13 +44,14 @@ job-applier/                  # outer folder (not in git)
     │   └── answers.yaml          # your saved answers (git-ignored)
     ├── resumes/              # your resume PDF (git-ignored)
     ├── src/sortie/
-    │   ├── cli.py            # `sortie init | run | login | report`
+    │   ├── cli.py            # `sortie init | run | login | report | retry | dashboard`
     │   ├── config.py         # load + validate YAML, skill aliases
     │   ├── durations.py      # date → years/months at runtime
     │   ├── browser.py        # persistent Chrome, human-like delays
     │   ├── log.py            # console + per-run log file
     │   ├── models.py         # Job, Question, Answer, ApplyResult
     │   ├── db.py             # SQLite tracking
+    │   ├── dashboard.py      # `sortie dashboard`: local web server (+ dashboard.html) → features/dashboard.md
     │   ├── filters.py        # rule-based pre-filter, location aliases
     │   ├── runner.py         # the run loop
     │   ├── terminal.py       # prompts
@@ -69,7 +70,7 @@ job-applier/                  # outer folder (not in git)
 3. **Fetch full JD** → rule-based **pre-filter**.
 4. **LLM fit score** (0–100 + reason); below threshold → skipped and logged.
 5. **Apply**: profile answers first, LLM fallback, pause on anything uncertain; company-site redirects go to the external queue.
-6. **Record**: screenshot, DB row, end-of-run summary.
+6. **Record**: screenshot, DB row, end-of-run summary. Everything recorded is browsable in `sortie dashboard`, where you also mark replies and interviews.
 7. **Safety**: daily caps, random delays, stop on captcha.
 
 ## 5. Phases
@@ -77,7 +78,7 @@ job-applier/                  # outer folder (not in git)
 - **Phase 1:** shared core + Naukri (incl. optional daily profile refresh), Instahyre, CutShort.
 - **Phase 2:** LinkedIn Easy Apply (≈25/day cap), Indeed Apply (may need manual help with Cloudflare).
 - **Phase 3:** company career pages — Greenhouse / Lever / Ashby adapters, browser-use fallback for Workday / custom; processes the external queue.
-- **Extras:** JobSpy discovery, per-job resume tailoring, daily schedule via macOS launchd, small dashboard over SQLite.
+- **Extras:** JobSpy discovery, per-job resume tailoring, daily schedule via macOS launchd. The dashboard over SQLite is done (2026-11-12, `sortie dashboard`, with outcome tracking).
 
 ## 6. Testing
 
