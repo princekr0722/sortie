@@ -29,6 +29,15 @@ Sortie finds jobs on Indian job portals, scores them against the user's resume, 
 - `doc/**/*.md` and `README.md` are part of the repo and are committed with related changes. Other `.md` files follow the global rule: ask first.
 - Before committing, check with `git add -n .` that nothing personal or secret is staged: no API keys (`nvapi-`, `sk-…`), no personal emails or phones, no `/Users/...` paths.
 - Commit or push only when the user asks.
+- **Docs check before every push**: go through what changed and update, in the same push:
+  - `doc/TRACKER.md` rows
+  - the affected `doc/features/*.md`: behaviour, the `**Status:**` line and the lessons table
+  - `doc/INDEX.md` if a feature or its status changed
+  - `README.md` if usage or setup changed
+  - the `config/*.example*` files if a config key or its meaning changed
+  - this file if a rule changed
+
+  A push with code changes but no doc changes needs a reason.
 
 ## Answering rules (don't weaken these)
 - Resolution order: profile rules → `config/answers.yaml` (exact match) → LLM (with the answer book in its prompt, so reworded questions reuse the user's answers) → ask the user.
