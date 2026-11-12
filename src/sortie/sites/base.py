@@ -56,6 +56,13 @@ class SiteAdapter(ABC):
         # questionnaires already finished (given by the runner) and ones finished this pass (reported back)
         self.done_questionnaires: set[str] = set()
         self.questionnaires_done: list[tuple[str, str]] = []  # (questionnaire id, outcome)
+        self.handled_before = 0  # search results the runner skipped as handled in an earlier run (counted by it)
+
+    def fresh(self, new: int, before: int) -> str:
+        """'N new' for a search page's log line, with jobs from earlier runs counted apart. `before` is
+        `handled_before` at the page's start; search yields lazily, so by the log line the runner has seen them all."""
+        old = self.handled_before - before
+        return f"{new - old} new" + (f", {old} already handled" if old else "")
 
     @abstractmethod
     async def ensure_logged_in(self) -> bool: ...

@@ -149,3 +149,30 @@ async def test_rejected_phone_is_retyped_in_another_format():
         value = await page.locator("#p").input_value()
         await browser.close()
     assert value == "+91 98765 43210" and answers["Phone"].value == value
+
+
+async def test_optional_phone_rejected_in_every_format_is_left_empty():
+    from playwright.async_api import async_playwright
+    from sortie.models import Answer
+    from sortie.sites.forms import fix_rejected_phone, read_fields
+    # a US-only validator; empty is fine because the field is optional
+    form = """<div role="dialog">{phone}</div>
+      <script>const p = document.getElementById('p'); const check = () => document.getElementById('err').innerText =
+        (p.value === '' || /^\\d{{3}}-\\d{{3}}-\\d{{4}}$/.test(p.value)) ? '' : 'Phone number is not valid';
+        p.addEventListener('blur', check); check();</script>"""
+    field = """<label for="form-input--undefined"><div>Phone{star}</div><div><input type="text" id="p"
+      value="+919876543210"></div><div id="err"></div></label>"""
+    async with async_playwright() as pw:
+        browser = await pw.chromium.launch(channel="chrome", headless=True)
+        results = []
+        for star in ("", "<span>*</span>"):
+            page = await browser.new_page()  # a fresh page each time: the validator script declares consts
+            await page.set_content(form.format(phone=field.format(star=star)))
+            dialog = page.locator("[role=dialog]")
+            await read_fields(dialog)
+            answers = {"Phone": Answer("+919876543210", "profile")}
+            results.append((await fix_rejected_phone(dialog, answers), await page.locator("#p").input_value(), answers))
+        await browser.close()
+    (optional_reason, optional_value, optional_answers), (required_reason, _, _) = results
+    assert optional_reason is None and optional_value == "" and "Phone" not in optional_answers
+    assert required_reason and "every format" in required_reason

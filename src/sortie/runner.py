@@ -127,6 +127,7 @@ class Runner:
         self.job_number = 0
         async for job in adapter.search(self.search, self.profile):
             if self.db.is_seen(name, job.site_job_id):
+                adapter.handled_before += 1
                 continue
             if reason := skip_reason(job, self.search, self.profile):
                 self.record(job, ApplyResult(Status.SKIPPED, reason))

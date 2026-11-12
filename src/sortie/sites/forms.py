@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from playwright.async_api import Frame, Locator, Page
 
 from sortie.llm.answerer import Answerer, date_format, question_kind
+from sortie.log import log
 from sortie.models import Answer, Job, Question, QuestionKind
 
 # a whole page, a frame, or one element of it (e.g. an apply dialog, so fields behind it aren't read)
@@ -269,8 +270,8 @@ def phone_variants(number: str) -> list[str]:
 
 
 async def fix_rejected_phone(scope: Scope, answers: dict[str, Answer]) -> str | None:
-    """If the form flags a phone number we typed as invalid, retype it in other formats. Returns None when
-    nothing was rejected or a format was accepted, else a reason."""
+    """If the form flags a phone number we typed as invalid, retype it in other formats; if none is accepted and
+    the field is optional, leave it empty. Returns None when the form is fine now, else a reason."""
     for f in await read_fields(scope):
         if f.kind not in ("text", "tel") or not PHONE_LABEL.search(f.label):
             continue
@@ -287,6 +288,15 @@ async def fix_rejected_phone(scope: Scope, answers: dict[str, Answer]) -> str | 
                 q = to_question(f).text
                 if q in answers:
                     answers[q] = Answer(variant, answers[q].source)
+                return None
+        if not f.required:  # e.g. an optional phone box that only takes US numbers: leave it empty
+            await box.fill("")
+            await box.press("Tab")
+            await _pause(scope, SETTLE_MS)
+            if not await _root(scope).evaluate(FIELD_ERROR_JS, f.key):
+                answers.pop(to_question(f).text, None)
+                log.info(f"        {f.label.strip(' *')}: the form rejected your number in every format; "
+                         f"left empty (optional)", extra={"detail": True})
                 return None
         return f"the form rejected the phone number in every format ({f.label.strip(' *')})"
     return None

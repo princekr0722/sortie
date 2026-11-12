@@ -55,6 +55,7 @@ Your `roles` list only finds jobs posted under titles you thought of. Once a day
   The LLM is asked for `ai_roles + 2` titles so there's room to filter, then the list is cut to `ai_roles`.
 - **Order:** your roles are searched first and the AI's after them, so the daily cap fills from your own titles first.
 - **Cache:** `data/ai_roles.json` is reused for the whole day and refreshed on the next day, or as soon as your roles, exclusions or `ai_roles` change. That's one LLM call a day.
+- **Search log:** each results page logs "N jobs, N new, N already handled". Jobs handled in an earlier run are skipped silently by the runner, which counts them (`SiteAdapter.handled_before`).
 - **Logged** at the start of each run: `🤖 AI-suggested roles: …`.
 - **No LLM, or the call fails:** your roles only; the run carries on.
 - The title screen and fit score still judge every job, so a loose suggestion costs search pages, not applications.

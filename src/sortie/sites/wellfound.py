@@ -191,6 +191,7 @@ class WellfoundAdapter(SiteAdapter):
                         break
                     items = await self.page.evaluate(JOBS_JS) or []
                     new = closed = 0
+                    before = self.handled_before
                     for item in items:
                         if (item.get("jobType") or "full-time") != "full-time":
                             continue
@@ -204,7 +205,7 @@ class WellfoundAdapter(SiteAdapter):
                             yielded.add(job.site_job_id)
                             new += 1
                             yield job
-                    log.info(f"  search: {role} · {label} · page {page} → {len(items)} jobs, {new} new"
+                    log.info(f"  search: {role} · {label} · page {page} → {len(items)} jobs, {self.fresh(new, before)}"
                              + (f", {closed} not hiring from {profile.home_country}" if closed else ""),
                              extra={"detail": True})
                     if not new and not closed:

@@ -70,6 +70,16 @@ async def test_auto_applies_up_to_cap_and_dedupes(make_runner):
     assert site2.applied == []
 
 
+async def test_jobs_from_earlier_runs_counted_as_handled(make_runner):
+    r = make_runner(Mode.AUTO)
+    await r.run_site(FakeSite(jobs(2)))
+    site = FakeSite(jobs(2))
+    await r.run_site(site)
+    assert site.handled_before == 2 and site.applied == []
+    assert site.fresh(new=3, before=0) == "1 new, 2 already handled"
+    assert site.fresh(new=3, before=2) == "3 new"
+
+
 async def test_excluded_company_recorded_as_skipped(make_runner):
     r = make_runner(Mode.AUTO)
     await r.run_site(FakeSite([Job(site="fake", site_job_id="x", url="u", title="Java Developer",

@@ -233,7 +233,7 @@ class CutshortAdapter(SiteAdapter):
                     items = await self.page.evaluate(JOBS_JS)
                     if not items:  # no listing page for this keyword
                         continue
-                    new = 0
+                    new, before = 0, self.handled_before
                     for item in items:
                         job = data_to_job(item)
                         if job and job.site_job_id not in yielded:
@@ -241,7 +241,7 @@ class CutshortAdapter(SiteAdapter):
                             self.found_on[job.site_job_id] = url
                             new += 1
                             yield job
-                    log.info(f"  search: {keyword} · {location} → {len(items)} jobs, {new} new", extra={"detail": True})
+                    log.info(f"  search: {keyword} · {location} → {len(items)} jobs, {self.fresh(new, before)}", extra={"detail": True})
                     await human_pause(2, 5)
 
     async def get_details(self, job: Job) -> Job:

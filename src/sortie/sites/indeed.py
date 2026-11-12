@@ -153,6 +153,7 @@ class IndeedAdapter(SiteAdapter):
                         await self.debug_dump("no-cards")
                         break
                     new = applied = external = 0
+                    before = self.handled_before
                     for card in cards:
                         if card.get("appliedOrGreater"):
                             applied += 1
@@ -167,7 +168,7 @@ class IndeedAdapter(SiteAdapter):
                             yield job
                     notes = [f"{applied} already applied"] * bool(applied) + [f"{external} on company sites, left out"] * bool(external)
                     note = f" ({', '.join(notes)})" if notes else ""
-                    log.info(f"  search: {role} · {location} · page {page + 1} → {len(cards)} jobs, {new} new{note}",
+                    log.info(f"  search: {role} · {location} · page {page + 1} → {len(cards)} jobs, {self.fresh(new, before)}{note}",
                              extra={"detail": True})
                     # Indeed repeats results past the last page, so a page with nothing new ends the search
                     if not new and not external or not await self.page.locator(SELECTORS["next_page"]).count():

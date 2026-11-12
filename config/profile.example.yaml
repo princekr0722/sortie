@@ -3,7 +3,7 @@
 
 name: Your Name
 email: you@example.com
-phone: "+910000000000"            # with country code; reformatted (+91 00000 00000…) if a form rejects it
+phone: "+910000000000"            # with country code; reformatted (+91 00000 00000…) if a form rejects it, left out of optional phone boxes that refuse it
 current_location: Chennai, Tamil Nadu, India
 current_company: Your Company
 current_title: Software Engineer
