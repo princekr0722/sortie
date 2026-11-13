@@ -22,6 +22,7 @@ Sortie finds jobs on Indian job portals, scores them against the user's resume, 
 - Behaviour comes from config (`education_aliases`, `home_country`, `work_authorization`, `skills_since`, …), never from hard-coded personal values.
 - Tests use `tests/fixtures/` (the fake "Test Candidate", employer "Initech"), never `config/`.
 - Docs use placeholders (Acme, "Your Name", `you@example.com`).
+- **Never put the user's own details in code, comments, tests, docs, tracker rows or commit messages**, even when a fix came from their run. That covers their cities and countries, roles, companies, questions they were asked, and their answers. Use generic examples instead (Berlin, San Francisco, "Backend Engineer", Acme), and describe bugs generically ("a city listed as a spelling of its country was skipped"). Before reporting work, grep the diff for the values in their `config/` files.
 
 ## Git
 - The repo root is this `sortie/` folder; the outer `job-applier/` folder isn't in git.

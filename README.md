@@ -60,7 +60,7 @@ Then:
 .venv/bin/sortie retry naukri                            # failed jobs get fresh attempts (after a fix)
 ```
 Several sites run one after another: `--sites naukri,instahyre,cutshort,wellfound` (default: all enabled sites).
-On Wellfound, use common job titles in `roles` ("Backend Engineer", "Java Developer"): a title it has no role page for is skipped there. Wellfound also checks the location on your Wellfound profile: jobs it says don't support your location are skipped, and remote jobs limited to other countries are left out of the search.
+On Wellfound, use common job titles in `roles` ("Backend Engineer", "Java Developer"): a title it has no role page for is skipped there. Wellfound also checks the location on your Wellfound profile: jobs it says don't support your location are skipped, and remote jobs limited to other countries are left out of the search. Every place in `locations` is searched on Wellfound, cities and countries.
 Add `--headless` to run without a visible window (Naukri and Instahyre block headless browsers, so keep the browser visible).
 Add `--pace fast` for shorter pauses between pages (`careful` / `normal` / `fast`; default in `search.yaml`).
 

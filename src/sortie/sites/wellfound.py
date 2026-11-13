@@ -7,12 +7,13 @@ from __future__ import annotations
 import ast
 import re
 from collections.abc import AsyncIterator
+from urllib.parse import urlparse
 
 from playwright.async_api import Error as PlaywrightError
 
 from sortie.browser import human_pause
 from sortie.config import Profile, SearchConfig
-from sortie.filters import COUNTRIES, location_aliases
+from sortie.filters import location_aliases
 from sortie.llm.answerer import Answerer
 from sortie.log import log
 from sortie.models import Answer, ApplyResult, Job, Question, QuestionKind, Status
@@ -83,6 +84,12 @@ def search_url(role: str, location: str | None, page: int = 1) -> str:
 def is_role_page(url: str) -> bool:
     """Wellfound redirects a role slug it doesn't know to the general /location/<city> page."""
     return "/role/" in url
+
+
+def is_place_page(url: str, wanted: str) -> bool:
+    """Wellfound redirects a place it doesn't know to the worldwide role page (/role/<role>, verified 2026-11-13):
+    the page must still be the one asked for, or worldwide jobs would pass as local ones."""
+    return urlparse(url).path.rstrip("/") == urlparse(wanted).path.rstrip("/")
 
 
 def _names(value) -> list[str]:
@@ -162,22 +169,20 @@ class WellfoundAdapter(SiteAdapter):
         yielded: set[str] = set()
         yours = [profile.home_country, *search.locations]
         unknown_roles: set[str] = set()  # role phrases Wellfound has no role page for
-        places: list[str | None] = []
-        for location in search.locations:
-            if location_aliases(location)[0] in COUNTRIES - {"india"}:
-                log.info(f"  not searching {location} on Wellfound (cities only)", extra={"detail": True})
-                continue
-            places.append(location)
+        # cities and countries both have pages (verified 2026-11-13)
+        places: list[str | None] = list(search.locations)
         if search.include_remote:
             places.append(None)
         for place in places:
             label = place or "remote"
+            unknown_place = False
             for role in search.roles:
-                if role in unknown_roles:
+                if role in unknown_roles or unknown_place:
                     continue
                 for page in range(1, MAX_PAGES + 1):
+                    url = search_url(role, place, page)
                     try:
-                        await self.page.goto(search_url(role, place, page), wait_until="domcontentloaded")
+                        await self.page.goto(url, wait_until="domcontentloaded")
                     except PlaywrightError as e:
                         log.info(f"  search: {role} · {label} didn't load ({str(e).splitlines()[0][:80]})",
                                  extra={"detail": True})
@@ -188,6 +193,11 @@ class WellfoundAdapter(SiteAdapter):
                         unknown_roles.add(role)
                         log.info(f"  search: Wellfound has no \"{role}\" role page; skipping it here "
                                  f"(use a common title, e.g. Backend Engineer)", extra={"detail": True})
+                        break
+                    if not is_place_page(self.page.url, url):
+                        unknown_place = True
+                        log.info(f"  search: Wellfound has no page for {label}; skipping it (check the spelling "
+                                 f"in search.yaml locations)", extra={"detail": True})
                         break
                     items = await self.page.evaluate(JOBS_JS) or []
                     new = closed = 0

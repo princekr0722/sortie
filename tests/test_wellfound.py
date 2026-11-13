@@ -42,6 +42,16 @@ def test_unknown_role_redirect_detected():
     assert not is_role_page("https://wellfound.com/location/bangalore")
 
 
+def test_unknown_place_redirect_to_worldwide_page():
+    from sortie.sites.wellfound import is_place_page, search_url
+    want = search_url("Backend Engineer", "Berlin", 2)
+    assert want == "https://wellfound.com/role/l/backend-engineer/berlin?page=2"
+    assert is_place_page("https://wellfound.com/role/l/backend-engineer/berlin?page=2", want)
+    # verified 2026-11-13: a place Wellfound doesn't know lands on the worldwide role page
+    assert not is_place_page("https://wellfound.com/role/backend-engineer", search_url("Backend Engineer", "Xyzzy"))
+    assert search_url("Backend Engineer", "San Francisco") == "https://wellfound.com/role/l/backend-engineer/san-francisco"
+
+
 async def test_radios_outside_a_fieldset_are_read_as_one_question():
     from playwright.async_api import async_playwright
     from sortie.sites.forms import read_fields
