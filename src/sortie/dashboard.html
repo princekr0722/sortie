@@ -117,7 +117,15 @@ tr.click:hover td { background: var(--surface-2); }
 .qa { border-top: 1px solid var(--grid); padding: 10px 0; }
 .qa .q { font-weight: 600; font-size: 13px; }
 .qa .a { white-space: pre-wrap; color: var(--ink-2); }
-.jd { white-space: pre-wrap; font-size: 13px; color: var(--ink-2); max-height: 420px; overflow: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+.jd { font-size: 13.5px; line-height: 1.6; color: var(--ink-2); max-height: 520px; overflow: auto; overflow-wrap: anywhere; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 4px 18px 14px; }
+.jd h4 { margin: 16px 0 6px; font-size: 14px; color: var(--ink); }
+.jd p { margin: 8px 0; }
+.jd ul, .jd ol { margin: 6px 0 10px; padding-left: 20px; }
+.jd li { margin: 3px 0; }
+.jd li.sub { margin-left: 18px; list-style-type: circle; }
+.jd strong { color: var(--ink); }
+.jd code { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--grid); padding: 1px 4px; border-radius: 4px; }
+.jd a { color: var(--brand); }
 .shot img { max-width: 100%; border: 1px solid var(--border); border-radius: 10px; }
 pre.log { white-space: pre-wrap; word-break: break-word; font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; max-height: 75vh; overflow: auto; margin: 0; }
 pre.log .ok { color: var(--good-ink); } pre.log .bad { color: var(--critical); } pre.log .hd { font-weight: 700; color: var(--ink); }
@@ -188,6 +196,44 @@ let appState = {site: "", status: "", q: "", from: "", to: "", stage: "", offset
 
 function esc(v) {
   return String(v ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+}
+// Job descriptions come as Markdown (Wellfound) or plain lines with "-"/"•" bullets (the others).
+// The text is escaped first, so only the tags made here can appear.
+function jdInline(s) {
+  return s
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+    .replace(/\*\*(.+?)\*\*|__(.+?)__/g, (_, a, b) => `<strong>${a ?? b}</strong>`)
+    .replace(/(^|[^\w*])\*(?!\s)([^*]+?)\*(?![\w*])/g, "$1<em>$2</em>")
+    .replace(/(^|[^\w])_(?!\s)([^_]+?)_(?!\w)/g, "$1<em>$2</em>")
+    .replace(/\\([\\`*_{}\[\]()#+\-.!>])/g, "$1");
+}
+function renderJd(text) {
+  const lines = esc(String(text).replace(/\r/g, "")).split("\n");
+  const out = [];
+  let list = null;  // "ul" | "ol" while inside a list
+  const close = () => { if (list) { out.push(`</${list}>`); list = null; } };
+  const open = kind => { if (list !== kind) { close(); out.push(`<${kind}>`); list = kind; } };
+  lines.forEach((raw, i) => {
+    const line = raw.trim();
+    if (!line || /^([-*_])\1{2,}$/.test(line)) { close(); return; }  // blank or a --- rule
+    let m;
+    if ((m = line.match(/^#{1,6}\s+(.*)$/)) || (m = line.match(/^\*\*([^*]+)\*\*:?$/))) {
+      close(); out.push(`<h4>${jdInline(m[1])}</h4>`);
+    } else if ((m = line.match(/^(?:[-*+•●▪◦·–]|&gt;)\s+(.*)$/))) {
+      open("ul"); out.push(`<li${/^\s{2,}/.test(raw) ? ' class="sub"' : ""}>${jdInline(m[1])}</li>`);
+    } else if ((m = line.match(/^\d{1,2}[.)]\s+(.*)$/))) {
+      open("ol"); out.push(`<li>${jdInline(m[1])}</li>`);
+    } else if (line.length <= 60 && line.split(/\s+/).length <= 8 && !/[.,;!?]$/.test(line)
+               && !/^[\w &/()-]{1,30}:\s+\S/.test(line) && lines.slice(i + 1).some(l => l.trim())) {
+      close(); out.push(`<h4>${jdInline(line.replace(/:$/, ""))}</h4>`);  // a short title line ("What you will do")
+    } else {
+      close();
+      out.push(`<p>${jdInline(line).replace(/^([A-Z][\w &/()-]{1,30}):\s+/, "<strong>$1:</strong> ")}</p>`);
+    }
+  });
+  close();
+  return out.join("");
 }
 function safeUrl(u) { return /^https?:\/\//i.test(u || "") ? u : ""; }
 function chip(status) {
@@ -467,7 +513,7 @@ async function openApp(id) {
     ${answers.length ? `<div class="card"><h2>Questions answered (${answers.length})</h2>${answers.map(([q, v]) => `<div class="qa"><div class="q">${esc(q)}</div><div class="a">${esc(Array.isArray(v) ? v.join(", ") : v)}</div></div>`).join("")}</div>` : ""}
     ${a.screenshot ? `<div class="card shot"><h2>Screenshot</h2><a href="/screenshots/${encodeURIComponent(a.screenshot)}" target="_blank" rel="noopener"><img src="/screenshots/${encodeURIComponent(a.screenshot)}" alt="Screenshot of the page after this attempt" loading="lazy"></a></div>` : ""}
     ${a.attempts.length > 1 ? `<div class="card"><h2>Attempts</h2><table><tbody>${a.attempts.map(t => `<tr><td class="small ink2">${fmtDate(t.created_at)}</td><td>${chip(t.status)}</td><td class="small ink2">${esc(t.reason)}</td></tr>`).join("")}</tbody></table></div>` : ""}
-    ${a.jd ? `<h2>Job description</h2><div class="jd">${esc(a.jd)}</div>` : ""}`;
+    ${a.jd ? `<h2>Job description</h2><div class="jd">${renderJd(a.jd)}</div>` : ""}`;
   document.getElementById("drawer-root").classList.add("open");
   $("#close").onclick = closeDrawer;
   bindOutcome(a);

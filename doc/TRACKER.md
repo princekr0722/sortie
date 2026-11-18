@@ -2,7 +2,7 @@
 
 Status: ⬜ todo · 🟨 in progress · ✅ done · ⛔ blocked
 
-_Last updated: 2026-11-13_
+_Last updated: 2026-11-18_
 
 ## Phase 1 — Core + Naukri, Instahyre, CutShort
 
@@ -38,6 +38,7 @@ _Last updated: 2026-11-13_
 | 1.29 | Dashboard: `sortie dashboard`, a local read-only web page with overview, applications (details, answers, screenshots), needs-you, follow-ups, answers and run logs. Read-only, 127.0.0.1 only, no new dependencies | [dashboard](features/dashboard.md) | ✅ | 2026-11-12 |
 | 1.30 | Dashboard outcomes: mark applied jobs Heard back / Interview / Offer / Rejected / Withdrawn with notes and a timeline; funnel and response rates by site and fit score | [dashboard](features/dashboard.md) | ✅ | 2026-11-12 |
 | 1.31 | Wellfound searches every place in `locations`, countries included (cities the location table lists as spellings of a country were treated as that country and skipped as "cities only"); a place Wellfound doesn't know redirects to the worldwide page and is now skipped | [wellfound](features/site-wellfound.md) | ✅ | 2026-11-13 |
+| 1.32 | Dashboard shows job descriptions formatted (Markdown and plain bullet text rendered safely) instead of raw text | [dashboard](features/dashboard.md) | ✅ | 2026-11-18 |
 | 1.20 | Needs-you list (all sites): what Sortie left for you, with links, in `sortie report` | [cutshort](features/site-cutshort.md) | ✅ | Instahyre inbox messages included |
 | 1.12 | First live run (review mode, cap 3/site) | — | ✅ | Naukri, Instahyre, CutShort all live |
 | 1.13 | Answer book: `config/answers.yaml`, reused for reworded questions via LLM | [llm](features/llm-matching-and-answers.md) | ✅ | |
